@@ -107,6 +107,25 @@ func searchUser(user, passwd string) bool {
 	return result.ID.Valid()
 }
 
+func registerUser(user *User) bool {
+	session, err := mgo.Dial("localhost:27017")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	c := session.DB("securechat").C("user")
+
+	err = c.Insert(&user)
+
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Request: ", r.FormValue("user"), r.FormValue("pass"))
 	logged := searchUser(r.FormValue("user"), r.FormValue("pass"))
@@ -114,9 +133,22 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(strconv.AppendBool(make([]byte, 0), logged)))
 }
 
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Request: ", r.FormValue("user"), r.FormValue("pass"))
+
+	user := User{}
+	user.Username = r.FormValue("user")
+	user.Password = r.FormValue("pass")
+
+	registered := registerUser(&user)
+
+	w.Write([]byte(strconv.AppendBool(make([]byte, 0), registered)))
+}
+
 func main() {
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/register", registerHandler)
 	port := GetPort()
 	err := http.ListenAndServe(port, nil)
 	if err != nil {
