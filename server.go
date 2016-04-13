@@ -11,16 +11,6 @@ import (
 	"strconv"
 )
 
-// GetPort Get the Port from the environment so we can run on Heroku
-func GetPort() string {
-	var port = os.Getenv("PORT")
-	// Set a default port if there is nothing in the environment
-	if port == "" {
-		port = "8080"
-		log.Println("INFO: No PORT environment variable detected, defaulting to " + port)
-	}
-	return ":" + port
-}
 
 // User structure
 type User struct {
@@ -86,14 +76,14 @@ func chatHandler(ws *websocket.Conn) {
 }
 
 func searchUser(user, passwd string) bool {
-	session, err := mgo.Dial("localhost:27017")
+	session, err := mgo.Dial(src.URI)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	c := session.DB("securechat").C("user")
+	c := session.DB(src.AUTH_DATABASE).C("user")
 
 	result := User{}
 
@@ -108,14 +98,14 @@ func searchUser(user, passwd string) bool {
 }
 
 func registerUser(user *User) bool {
-	session, err := mgo.Dial("localhost:27017")
+	session, err := mgo.Dial(src.URI)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	c := session.DB("securechat").C("user")
+	c := session.DB(src.AUTH_DATABASE).C("user")
 
 	err = c.Insert(&user)
 
