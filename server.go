@@ -6,11 +6,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"log"
 	"net/http"
-	"os"
 	"project/server/src"
 	"strconv"
 )
-
 
 // User structure
 type User struct {
@@ -139,8 +137,8 @@ func main() {
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/register", registerHandler)
-	port := GetPort()
-	err := http.ListenAndServe(port, nil)
+
+	err := http.ListenAndServe(src.PORT, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: " + err.Error())
 	}
