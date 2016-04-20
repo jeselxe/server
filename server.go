@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"golang.org/x/crypto/scrypt"
 	"golang.org/x/net/websocket"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -15,6 +17,7 @@ type User struct {
 	ID       bson.ObjectId `bson:"_id,omitempty"`
 	Username string        `bson:"name"`
 	Password string        `bson:"password"`
+	Salt     string        `bson:"salt"`
 }
 
 // Message structure
@@ -114,6 +117,16 @@ func registerUser(user *User) bool {
 	return true
 }
 
+func encrypt(pass []byte) (dk, salt []byte) {
+	salt = []byte("random salt")
+	dk, err := scrypt.Key(pass, salt, 16384, 8, 1, 32)
+
+	if err != nil {
+		log.Println("ERROR SCRYPT", err)
+	}
+	return
+}
+
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Request: ", r.FormValue("user"), r.FormValue("pass"))
 	logged := searchUser(r.FormValue("user"), r.FormValue("pass"))
@@ -124,9 +137,14 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Request: ", r.FormValue("user"), r.FormValue("pass"))
 
+	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
+
+	pwd, salt := encrypt(pass)
+
 	user := User{}
 	user.Username = r.FormValue("user")
-	user.Password = r.FormValue("pass")
+	user.Password = base64.StdEncoding.EncodeToString(pwd)
+	user.Salt = base64.StdEncoding.EncodeToString(salt)
 
 	registered := registerUser(&user)
 
