@@ -76,7 +76,7 @@ func chatHandler(ws *websocket.Conn) {
 	log.Printf("Send: %s\n", response)
 }
 
-func searchUser(user, passwd string) bool {
+func searchUser(user string, passwd []byte) bool {
 	session, err := mgo.Dial(src.URI)
 	if err != nil {
 		log.Fatal(err)
@@ -88,14 +88,22 @@ func searchUser(user, passwd string) bool {
 
 	result := User{}
 
-	err = c.Find(bson.M{"name": user, "password": passwd}).One(&result)
+	err = c.Find(bson.M{"name": user}).One(&result)
 
 	if err != nil {
 		log.Println("error count", err)
 		return false
 	}
 
-	return result.ID.Valid()
+	salt, _ := base64.StdEncoding.DecodeString(result.Salt)
+
+	dk, err := scrypt.Key(passwd, salt, 16384, 8, 1, 32)
+
+	if err != nil {
+		return false
+	}
+
+	return result.Password == base64.StdEncoding.EncodeToString(dk)
 }
 
 func registerUser(user *User) bool {
@@ -128,15 +136,14 @@ func encrypt(pass []byte) (dk, salt []byte) {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Request: ", r.FormValue("user"), r.FormValue("pass"))
-	logged := searchUser(r.FormValue("user"), r.FormValue("pass"))
+	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
+
+	logged := searchUser(r.FormValue("user"), pass)
 
 	w.Write([]byte(strconv.AppendBool(make([]byte, 0), logged)))
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Request: ", r.FormValue("user"), r.FormValue("pass"))
-
 	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
 
 	pwd, salt := encrypt(pass)
