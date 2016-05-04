@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"golang.org/x/crypto/scrypt"
 	"golang.org/x/net/websocket"
 	"gopkg.in/mgo.v2"
@@ -14,10 +15,13 @@ import (
 
 // User structure
 type User struct {
-	ID       bson.ObjectId `bson:"_id,omitempty"`
-	Username string        `bson:"name"`
-	Password string        `bson:"password"`
-	Salt     string        `bson:"salt"`
+	ID        bson.ObjectId `bson:"_id,omitempty"`
+	Username  string        `bson:"name"`
+	Password  string        `bson:"password"`
+	Salt      string        `bson:"salt"`
+	PubKey    string        `bson:"pubkey"`
+	PrivKey   string        `bson:"privkey"`
+	CipherMsg string        `bson:"ciphermsg"`
 }
 
 // Message structure
@@ -76,7 +80,7 @@ func chatHandler(ws *websocket.Conn) {
 	log.Printf("Send: %s\n", response)
 }
 
-func searchUser(user string, passwd []byte) bool {
+func searchUser(username string, passwd []byte) User {
 	session, err := mgo.Dial(src.URI)
 	if err != nil {
 		log.Fatal(err)
@@ -86,24 +90,28 @@ func searchUser(user string, passwd []byte) bool {
 
 	c := session.DB(src.AUTH_DATABASE).C("user")
 
-	result := User{}
+	user := User{}
 
-	err = c.Find(bson.M{"name": user}).One(&result)
+	err = c.Find(bson.M{"name": username}).One(&user)
 
 	if err != nil {
 		log.Println("error count", err)
-		return false
+		return User{}
 	}
 
-	salt, _ := base64.StdEncoding.DecodeString(result.Salt)
+	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
 
 	dk, err := scrypt.Key(passwd, salt, 16384, 8, 1, 32)
 
 	if err != nil {
-		return false
+		return User{}
 	}
 
-	return result.Password == base64.StdEncoding.EncodeToString(dk)
+	if user.Password == base64.StdEncoding.EncodeToString(dk) {
+		return user
+	}
+	return User{}
+
 }
 
 func registerUser(user *User) bool {
@@ -138,9 +146,13 @@ func encrypt(pass []byte) (dk, salt []byte) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
 
-	logged := searchUser(r.FormValue("user"), pass)
+	user := searchUser(r.FormValue("username"), pass)
 
-	w.Write([]byte(strconv.AppendBool(make([]byte, 0), logged)))
+	//w.Write([]byte(strconv.AppendBool(make([]byte, 0), logged)))
+
+	res, _ := json.Marshal(user)
+
+	w.Write(res)
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -149,9 +161,12 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	pwd, salt := encrypt(pass)
 
 	user := User{}
-	user.Username = r.FormValue("user")
+	user.Username = r.FormValue("username")
 	user.Password = base64.StdEncoding.EncodeToString(pwd)
 	user.Salt = base64.StdEncoding.EncodeToString(salt)
+	user.PubKey = r.FormValue("pub")
+	user.PrivKey = r.FormValue("priv")
+	user.CipherMsg = r.FormValue("msg")
 
 	registered := registerUser(&user)
 
