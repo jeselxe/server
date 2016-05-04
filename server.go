@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"golang.org/x/crypto/scrypt"
@@ -134,7 +135,9 @@ func registerUser(user *User) bool {
 }
 
 func encrypt(pass []byte) (dk, salt []byte) {
-	salt = []byte("random salt")
+	salt = make([]byte, 16)
+
+	rand.Read(salt)
 	dk, err := scrypt.Key(pass, salt, 16384, 8, 1, 32)
 
 	if err != nil {
