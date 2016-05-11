@@ -4,14 +4,15 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"log"
+	"net/http"
+	"project/server/src"
+
 	"golang.org/x/crypto/scrypt"
 	"golang.org/x/net/websocket"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"log"
-	"net/http"
-	"project/server/src"
-	"strconv"
 )
 
 // User structure
@@ -31,38 +32,6 @@ type Message struct {
 	Content string        `bson:"content"`
 }
 
-func mongo(message string) string {
-	session, err := mgo.Dial(src.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
-
-	// Collection messages
-	c := session.DB(src.AUTH_DATABASE).C("messages")
-
-	// Insert
-	result := Message{}
-	err = c.Insert(&Message{Content: message})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Query count
-	messages, err := c.Count()
-	// Query
-	//err = c.Find(bson.M{"username": "david"}) .One(&result)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(result)
-
-	// fmt.Println("Id: ", result.ID, " - User: ", result.Name, " - Password: ", result.Password)
-	response := "Total messages =" + strconv.Itoa(messages)
-	return response
-}
-
 func chatHandler(ws *websocket.Conn) {
 	msg := make([]byte, 512)
 	n, err := ws.Read(msg)
@@ -72,7 +41,7 @@ func chatHandler(ws *websocket.Conn) {
 	message := string(msg[:n])
 	log.Printf("Receive: %s\n", message)
 
-	response := mongo(message)
+	response := ""
 
 	_, err = ws.Write([]byte(response))
 	if err != nil {
@@ -115,7 +84,8 @@ func searchUser(username string, passwd []byte) User {
 
 }
 
-func registerUser(user *User) bool {
+func registerUser(inputUser *User) (User, error) {
+	var outputUser User
 	session, err := mgo.Dial(src.URI)
 	if err != nil {
 		log.Fatal(err)
@@ -124,14 +94,17 @@ func registerUser(user *User) bool {
 	session.SetMode(mgo.Monotonic, true)
 
 	c := session.DB(src.AUTH_DATABASE).C("user")
-
-	err = c.Insert(&user)
+	err = c.Insert(&inputUser)
 
 	if err != nil {
-		return false
+		err = c.Find(bson.M{"name": inputUser.Username}).One(&outputUser)
+		if err != nil {
+			return outputUser, nil
+		}
+		return outputUser, errors.New("User not found")
 	}
 
-	return true
+	return outputUser, errors.New("User not inserted")
 }
 
 func encrypt(pass []byte) (dk, salt []byte) {
@@ -169,17 +142,49 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	user.Salt = base64.StdEncoding.EncodeToString(salt)
 	user.PubKey = r.FormValue("pub")
 	user.PrivKey = r.FormValue("priv")
-	user.CipherMsg = r.FormValue("msg")
 
-	registered := registerUser(&user)
+	registeredUser, _ := registerUser(&user)
 
-	w.Write([]byte(strconv.AppendBool(make([]byte, 0), registered)))
+	res, _ := json.Marshal(registeredUser)
+	w.Write(res)
+}
+
+func searchUserHandler(w http.ResponseWriter, r *http.Request) {
+	var user User
+	username := r.FormValue("username")
+
+	user = findUser(username)
+
+	res, _ := json.Marshal(user)
+	w.Write(res)
+}
+
+func findUser(username string) User {
+	var user User
+
+	session, err := mgo.Dial(src.URI)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	c := session.DB(src.AUTH_DATABASE).C("user")
+
+	err = c.Find(bson.M{"name": username}).One(&user)
+
+	if err != nil {
+		log.Println("error count", err)
+	}
+
+	return user
 }
 
 func main() {
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/register", registerHandler)
+	http.HandleFunc("/search_user", searchUserHandler)
 
 	err := http.ListenAndServe(src.PORT, nil)
 	if err != nil {
