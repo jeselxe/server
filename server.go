@@ -19,8 +19,8 @@ import (
 type User struct {
 	ID       bson.ObjectId `bson:"_id,omitempty"`
 	Username string        `bson:"name"`
-	password string        `bson:"password"`
-	salt     string        `bson:"salt"`
+	Password string        `bson:"password"`
+	Salt     string        `bson:"salt"`
 	PubKey   string        `bson:"pubkey"`
 	PrivKey  string        `bson:"privkey"`
 }
@@ -68,7 +68,7 @@ func searchUser(username string, passwd []byte) User {
 		return User{}
 	}
 
-	salt, _ := base64.StdEncoding.DecodeString(user.salt)
+	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
 
 	dk, err := scrypt.Key(passwd, salt, 16384, 8, 1, 32)
 
@@ -76,7 +76,7 @@ func searchUser(username string, passwd []byte) User {
 		return User{}
 	}
 
-	if user.password == base64.StdEncoding.EncodeToString(dk) {
+	if user.Password == base64.StdEncoding.EncodeToString(dk) {
 		return user
 	}
 	return User{}
@@ -137,8 +137,8 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := User{}
 	user.Username = r.FormValue("username")
-	user.password = base64.StdEncoding.EncodeToString(pwd)
-	user.salt = base64.StdEncoding.EncodeToString(salt)
+	user.Password = base64.StdEncoding.EncodeToString(pwd)
+	user.Salt = base64.StdEncoding.EncodeToString(salt)
 	user.PubKey = r.FormValue("pub")
 	user.PrivKey = r.FormValue("priv")
 
