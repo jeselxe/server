@@ -49,38 +49,25 @@ func chatHandler(ws *websocket.Conn) {
 	log.Printf("Send: %s\n", response)
 }
 
-func searchUser(username string, passwd []byte) User {
-	session, err := mgo.Dial(src.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
+func scryptHash(word []byte, salt []byte) ([]byte, error) {
+	return scrypt.Key(word, salt, 16384, 8, 1, 32)
+}
 
-	c := session.DB(src.AUTH_DATABASE).C("user")
+func checkLogin(username string, passwd []byte) User {
+	var user User
 
-	user := User{}
-
-	err = c.Find(bson.M{"name": username}).One(&user)
-
-	if err != nil {
-		log.Println("error count", err)
-		return User{}
-	}
+	user = findUser(username)
 
 	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+	hashedPasswd, err := scryptHash(passwd, salt)
 
-	dk, err := scrypt.Key(passwd, salt, 16384, 8, 1, 32)
-
-	if err != nil {
-		return User{}
+	if err == nil {
+		if user.Password == base64.StdEncoding.EncodeToString(hashedPasswd) {
+			return user
+		}
 	}
 
-	if user.Password == base64.StdEncoding.EncodeToString(dk) {
-		return user
-	}
 	return User{}
-
 }
 
 func registerUser(inputUser *User) (User, error) {
@@ -110,7 +97,7 @@ func encrypt(pass []byte) (dk, salt []byte) {
 	salt = make([]byte, 16)
 
 	rand.Read(salt)
-	dk, err := scrypt.Key(pass, salt, 16384, 8, 1, 32)
+	dk, err := scryptHash(pass, salt)
 
 	if err != nil {
 		log.Println("ERROR SCRYPT", err)
@@ -121,7 +108,7 @@ func encrypt(pass []byte) (dk, salt []byte) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
 
-	user := searchUser(r.FormValue("username"), pass)
+	user := checkLogin(r.FormValue("username"), pass)
 
 	//w.Write([]byte(strconv.AppendBool(make([]byte, 0), logged)))
 
@@ -161,9 +148,17 @@ func searchUserHandler(w http.ResponseWriter, r *http.Request) {
 func findUser(username string) User {
 	var user User
 
-	collection := dbUsers()
+	// users := dbUsers()
+	session, err := mgo.Dial(src.URI)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
 
-	err := collection.Find(bson.M{"name": username}).One(&user)
+	users := session.DB(src.AUTH_DATABASE).C("user")
+
+	err = users.Find(bson.M{"name": username}).One(&user)
 
 	if err != nil {
 		log.Println("error count", err)
@@ -172,6 +167,7 @@ func findUser(username string) User {
 	return user
 }
 
+/*
 func dbUsers() *mgo.Collection {
 	session, err := mgo.Dial(src.URI)
 	if err != nil {
@@ -184,7 +180,7 @@ func dbUsers() *mgo.Collection {
 
 	return collection
 }
-
+*/
 func main() {
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
