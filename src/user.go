@@ -2,7 +2,6 @@ package src
 
 import (
 	"log"
-	"project/server/src"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -79,12 +78,12 @@ func RegisterUser(username, password, pubKey, privKey string) User {
 
 func (u *User) save() User {
 	var user User
-	session, err := mgo.Dial(src.URI)
+	session, err := mgo.Dial(URI)
 	Check(err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	c := session.DB(src.AuthDatabase).C("user")
+	c := session.DB(AuthDatabase).C("user")
 	err = c.Insert(&u)
 	Check(err)
 

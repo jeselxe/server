@@ -40,7 +40,7 @@ func checkLogin(username string, passwd []byte) src.User {
 	user = src.SearchUser(username)
 
 	salt := src.Decode64(user.Salt)
-	hashedPasswd, err := scryptHash(passwd, salt)
+	hashedPasswd, err := src.ScryptHash(passwd, salt)
 
 	if err == nil {
 		if user.Password == src.Encode64(hashedPasswd) {
