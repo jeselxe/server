@@ -1,29 +1,15 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"project/server/src"
 
-	"golang.org/x/crypto/scrypt"
 	"golang.org/x/net/websocket"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
-
-// User structure
-type User struct {
-	ID       bson.ObjectId `bson:"_id,omitempty"`
-	Username string        `bson:"name"`
-	Password string        `bson:"password"`
-	Salt     string        `bson:"salt"`
-	PubKey   string        `bson:"pubkey"`
-	PrivKey  string        `bson:"privkey"`
-}
 
 // Message structure
 type Message struct {
@@ -49,60 +35,20 @@ func chatHandler(ws *websocket.Conn) {
 	log.Printf("Send: %s\n", response)
 }
 
-func scryptHash(word []byte, salt []byte) ([]byte, error) {
-	return scrypt.Key(word, salt, 16384, 8, 1, 32)
-}
+func checkLogin(username string, passwd []byte) src.User {
+	var user src.User
+	user = src.SearchUser(username)
 
-func checkLogin(username string, passwd []byte) User {
-	var user User
-
-	user = findUser(username)
-
-	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+	salt := src.Decode64(user.Salt)
 	hashedPasswd, err := scryptHash(passwd, salt)
 
 	if err == nil {
-		if user.Password == base64.StdEncoding.EncodeToString(hashedPasswd) {
+		if user.Password == src.Encode64(hashedPasswd) {
 			return user
 		}
 	}
 
-	return User{}
-}
-
-func registerUser(inputUser *User) (User, error) {
-	var outputUser User
-	session, err := mgo.Dial(src.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
-
-	c := session.DB(src.AUTH_DATABASE).C("user")
-	err = c.Insert(&inputUser)
-
-	if err != nil {
-		err = c.Find(bson.M{"name": inputUser.Username}).One(&outputUser)
-		if err != nil {
-			return outputUser, nil
-		}
-		return outputUser, errors.New("User not found")
-	}
-
-	return outputUser, errors.New("User not inserted")
-}
-
-func encrypt(pass []byte) (dk, salt []byte) {
-	salt = make([]byte, 16)
-
-	rand.Read(salt)
-	dk, err := scryptHash(pass, salt)
-
-	if err != nil {
-		log.Println("ERROR SCRYPT", err)
-	}
-	return
+	return src.User{}
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -110,84 +56,40 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := checkLogin(r.FormValue("username"), pass)
 
-	//w.Write([]byte(strconv.AppendBool(make([]byte, 0), logged)))
-
 	res, _ := json.Marshal(user)
 
 	w.Write(res)
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
+	var user src.User
+	username := r.FormValue("username")
+	password := r.FormValue("pass")
+	pubKey := r.FormValue("pub")
+	privKey := r.FormValue("priv")
 
-	pwd, salt := encrypt(pass)
-
-	user := User{}
-	user.Username = r.FormValue("username")
-	user.Password = base64.StdEncoding.EncodeToString(pwd)
-	user.Salt = base64.StdEncoding.EncodeToString(salt)
-	user.PubKey = r.FormValue("pub")
-	user.PrivKey = r.FormValue("priv")
-
-	registeredUser, _ := registerUser(&user)
-
-	res, _ := json.Marshal(registeredUser)
+	user = src.RegisterUser(username, password, pubKey, privKey)
+	res, _ := json.Marshal(user)
 	w.Write(res)
 }
 
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {
-	var user User
+	var user src.User
 	username := r.FormValue("username")
 
-	user = findUser(username)
+	user = src.SearchUser(username)
 
 	res, _ := json.Marshal(user)
 	w.Write(res)
 }
 
-func findUser(username string) User {
-	var user User
-
-	// users := dbUsers()
-	session, err := mgo.Dial(src.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
-
-	users := session.DB(src.AUTH_DATABASE).C("user")
-
-	err = users.Find(bson.M{"name": username}).One(&user)
-
-	if err != nil {
-		log.Println("error count", err)
-	}
-
-	return user
-}
-
-/*
-func dbUsers() *mgo.Collection {
-	session, err := mgo.Dial(src.URI)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer session.Close()
-	session.SetMode(mgo.Monotonic, true)
-
-	collection := session.DB(src.AUTH_DATABASE).C("user")
-
-	return collection
-}
-*/
 func main() {
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/search_user", searchUserHandler)
 
-	err := http.ListenAndServe(src.PORT, nil)
+	err := http.ListenAndServe(src.Port, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: " + err.Error())
 	}

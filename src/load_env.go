@@ -5,15 +5,20 @@ import (
 	"os"
 )
 
+// URI uri from environment
 var URI = getURI()
-var AUTH_DATABASE = getDatabase()
-var PORT = GetPort()
+
+// AuthDatabase database from environment
+var AuthDatabase = getDatabase()
+
+// Port port from environment
+var Port = GetPort()
 
 func getURI() string {
 	var uri = os.Getenv("MONGOLAB_URI")
 	if uri == "" {
 		uri = "localhost:27017"
-		log.Println("INFO: dev_env")
+		log.Println("INFO: URI taken from env")
 	}
 	return uri
 
@@ -23,7 +28,7 @@ func getDatabase() string {
 	var db = os.Getenv("MONGOLAB_DB")
 	if db == "" {
 		db = "securechat"
-		log.Println("INFO: dev_env")
+		log.Println("INFO: Database taken from env")
 	}
 	return db
 }
