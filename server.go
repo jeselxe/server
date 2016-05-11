@@ -17,13 +17,12 @@ import (
 
 // User structure
 type User struct {
-	ID        bson.ObjectId `bson:"_id,omitempty"`
-	Username  string        `bson:"name"`
-	Password  string        `bson:"password"`
-	Salt      string        `bson:"salt"`
-	PubKey    string        `bson:"pubkey"`
-	PrivKey   string        `bson:"privkey"`
-	CipherMsg string        `bson:"ciphermsg"`
+	ID       bson.ObjectId `bson:"_id,omitempty"`
+	Username string        `bson:"name"`
+	password string        `bson:"password"`
+	salt     string        `bson:"salt"`
+	PubKey   string        `bson:"pubkey"`
+	PrivKey  string        `bson:"privkey"`
 }
 
 // Message structure
@@ -69,7 +68,7 @@ func searchUser(username string, passwd []byte) User {
 		return User{}
 	}
 
-	salt, _ := base64.StdEncoding.DecodeString(user.Salt)
+	salt, _ := base64.StdEncoding.DecodeString(user.salt)
 
 	dk, err := scrypt.Key(passwd, salt, 16384, 8, 1, 32)
 
@@ -77,7 +76,7 @@ func searchUser(username string, passwd []byte) User {
 		return User{}
 	}
 
-	if user.Password == base64.StdEncoding.EncodeToString(dk) {
+	if user.password == base64.StdEncoding.EncodeToString(dk) {
 		return user
 	}
 	return User{}
@@ -138,8 +137,8 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := User{}
 	user.Username = r.FormValue("username")
-	user.Password = base64.StdEncoding.EncodeToString(pwd)
-	user.Salt = base64.StdEncoding.EncodeToString(salt)
+	user.password = base64.StdEncoding.EncodeToString(pwd)
+	user.salt = base64.StdEncoding.EncodeToString(salt)
 	user.PubKey = r.FormValue("pub")
 	user.PrivKey = r.FormValue("priv")
 
@@ -162,6 +161,18 @@ func searchUserHandler(w http.ResponseWriter, r *http.Request) {
 func findUser(username string) User {
 	var user User
 
+	collection := dbUsers()
+
+	err := collection.Find(bson.M{"name": username}).One(&user)
+
+	if err != nil {
+		log.Println("error count", err)
+	}
+
+	return user
+}
+
+func dbUsers() *mgo.Collection {
 	session, err := mgo.Dial(src.URI)
 	if err != nil {
 		log.Fatal(err)
@@ -169,15 +180,9 @@ func findUser(username string) User {
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	c := session.DB(src.AUTH_DATABASE).C("user")
+	collection := session.DB(src.AUTH_DATABASE).C("user")
 
-	err = c.Find(bson.M{"name": username}).One(&user)
-
-	if err != nil {
-		log.Println("error count", err)
-	}
-
-	return user
+	return collection
 }
 
 func main() {
