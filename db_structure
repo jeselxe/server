@@ -6,7 +6,11 @@
     "password": "VqBLJb/V3ZaDVreo44VuOg9RnsV+I7fLF7iqtBN+33Y=",
     "salt": "cmFuZG9tIHNhbHQ=",
     "pubk": "",
-    "privk": ""
+    "privk": "",
+    "chats" : {
+        "id": 1,
+        "token": "token"
+    }
 }
 
 // Chat
