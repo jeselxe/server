@@ -1,15 +1,18 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
+	"project/client/src/utils"
 	"project/server/src"
 
 	"golang.org/x/net/websocket"
 	"gopkg.in/mgo.v2/bson"
 )
+
+// start docs
+// godoc -http=:6060
 
 // Message structure
 type Message struct {
@@ -38,7 +41,6 @@ func chatHandler(ws *websocket.Conn) {
 func checkLogin(username string, passwd []byte) src.User {
 	var user src.User
 	user = src.SearchUser(username)
-
 	salt := src.Decode64(user.Salt)
 	hashedPasswd, err := src.ScryptHash(passwd, salt)
 
@@ -52,25 +54,27 @@ func checkLogin(username string, passwd []byte) src.User {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	pass, _ := base64.StdEncoding.DecodeString(r.FormValue("pass"))
+	username := r.FormValue("username")
+	pass := utils.Decode64(r.FormValue("pass"))
 
-	user := checkLogin(r.FormValue("username"), pass)
-
+	user := checkLogin(username, pass)
 	res, _ := json.Marshal(user)
-
 	w.Write(res)
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	var user src.User
 	username := r.FormValue("username")
 	password := r.FormValue("pass")
 	pubKey := r.FormValue("pub")
 	privKey := r.FormValue("priv")
 
-	user = src.RegisterUser(username, password, pubKey, privKey)
-	res, _ := json.Marshal(user)
-	w.Write(res)
+	user, err := src.RegisterUser(username, password, pubKey, privKey)
+	if err != nil {
+		res, _ := json.Marshal(user)
+		w.Write(res)
+	} else {
+		w.Write([]byte("{error: 'user exists'}"))
+	}
 }
 
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {

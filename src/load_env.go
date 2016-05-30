@@ -21,7 +21,6 @@ func getURI() string {
 		log.Println("INFO: URI taken from env")
 	}
 	return uri
-
 }
 
 func getDatabase() string {
