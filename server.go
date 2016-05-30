@@ -70,10 +70,10 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := src.RegisterUser(username, password, pubKey, privKey)
 	if err != nil {
+		w.Write([]byte("{error: 'user exists'}"))
+	} else {
 		res, _ := json.Marshal(user)
 		w.Write(res)
-	} else {
-		w.Write([]byte("{error: 'user exists'}"))
 	}
 }
 
