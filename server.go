@@ -85,7 +85,6 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	users := src.SearchUser(username)
-	fmt.Println("searchUserHandler", users)
 	res, _ := json.Marshal(users)
 	w.Write(res)
 }
@@ -116,6 +115,8 @@ func main() {
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/search_user", searchUserHandler)
 	http.HandleFunc("/new_chat", newChatHandler)
+
+	go src.OpenChat()
 
 	err := http.ListenAndServe(src.Port, nil)
 	if err != nil {
