@@ -85,20 +85,28 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	users := src.SearchUser(username)
+	fmt.Println("searchUserHandler", users)
 	res, _ := json.Marshal(users)
 	w.Write(res)
 }
 
 func newChatHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
+	sendername := r.FormValue("sender")
+	senderKey := r.FormValue("senderkey")
+	receivername := r.FormValue("receiver")
+	receiverKey := r.FormValue("receiverkey")
 
-	users := src.SearchUser(username)
+	users := src.SearchUser(sendername)
+	sender := users[0]
+	users = src.SearchUser(receivername)
+	receiver := users[0]
 
-	for index, user := range users {
-		fmt.Println(index)
-		user.Print()
-	}
-	res, _ := json.Marshal(users)
+	chatid := src.CreateChat(sender, receiver)
+
+	sender.AddChat(chatid, senderKey)
+	receiver.AddChat(chatid, receiverKey)
+
+	res, _ := json.Marshal(chatid)
 	w.Write(res)
 }
 

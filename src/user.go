@@ -123,10 +123,7 @@ func SearchUser(username string) []User {
 	usersCollection := session.DB(AuthDatabase).C("user")
 	err = usersCollection.Find(bson.M{"name": username}).One(&user)
 	if !user.Validate() {
-		username = "/" + username + "/"
-		fmt.Println(username)
-		// FIXME error en query
-		err = usersCollection.Find(bson.M{"name": bson.RegEx{"/a/", ""}}).All(&users)
+		err = usersCollection.Find(bson.M{"name": bson.RegEx{username, ""}}).All(&users)
 		fmt.Println(len(users))
 	} else {
 		users = append(users, user)
@@ -137,6 +134,23 @@ func SearchUser(username string) []User {
 	}
 
 	return users
+}
+
+//AddChat adds the chat token to the user profile
+func (u *User) AddChat(chatid bson.ObjectId, token string) {
+	session, err := mgo.Dial(URI)
+	Check(err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	c := session.DB(AuthDatabase).C("user")
+
+	colQuerier := bson.M{"name": u.Username}
+	change := bson.M{"$push": bson.M{"chats": bson.M{"id": chatid, "token": token}}}
+	err = c.Update(colQuerier, change)
+	if err != nil {
+		log.Println("error count", err)
+	}
 }
 
 // Validate given a user u it returns whether its attributes are valid or not
