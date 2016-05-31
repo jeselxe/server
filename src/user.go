@@ -40,7 +40,7 @@ func (u *User) Search() User {
 
 // Login given a username and password, it tries to return its info from DB
 func Login(username string, password []byte) User {
-	user := SearchUser(username)
+	user := SearchUser(username)[0]
 	if user.Validate() {
 		salt := Decode64(user.Salt)
 		hashedPasswd, err := ScryptHash(password, salt)
@@ -57,8 +57,10 @@ func Login(username string, password []byte) User {
 func RegisterUser(username, password, pubKey, privKey string) (User, error) {
 	var user User
 	var returnError error
-	user = SearchUser(username)
-	if user.ID == "" {
+	users := SearchUser(username)
+	if len(users) == 1 {
+		returnError = errors.New("Username taken")
+	} else {
 		decodedPassword := Decode64(password)
 		hashedPassword, salt := HashWithRandomSalt(decodedPassword)
 
@@ -71,8 +73,6 @@ func RegisterUser(username, password, pubKey, privKey string) (User, error) {
 		user.Print()
 
 		user = user.save()
-	} else {
-		returnError = errors.New("Username taken")
 	}
 	return user, returnError
 }
@@ -100,13 +100,16 @@ func (u *User) save() User {
 	err = c.Insert(&u)
 	Check(err)
 
-	user = SearchUser(u.Username)
+	users := SearchUser(u.Username)
+	if len(users) == 1 {
+		user = users[0]
+	}
 
 	return user
 }
 
 // SearchUser returns the User object given a user with username
-func SearchUser(username string) User {
+func SearchUser(username string) []User {
 	var user User
 	var users []User
 
@@ -118,19 +121,22 @@ func SearchUser(username string) User {
 	session.SetMode(mgo.Monotonic, true)
 
 	usersCollection := session.DB(AuthDatabase).C("user")
-	// db.user.find({"name": /m/}) or /.*m.*/
 	err = usersCollection.Find(bson.M{"name": username}).One(&user)
-
 	if !user.Validate() {
-		username = "/.*" + username + "/.*"
-		err = usersCollection.Find(bson.M{"name": username}).All(&users)
+		username = "/" + username + "/"
+		fmt.Println(username)
+		// FIXME error en query
+		err = usersCollection.Find(bson.M{"name": bson.RegEx{"/a/", ""}}).All(&users)
+		fmt.Println(len(users))
+	} else {
+		users = append(users, user)
 	}
 
 	if err != nil {
 		log.Println("error count", err)
 	}
 
-	return user
+	return users
 }
 
 // Validate given a user u it returns whether its attributes are valid or not

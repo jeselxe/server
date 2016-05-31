@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"project/client/src/utils"
@@ -39,17 +40,21 @@ func chatHandler(ws *websocket.Conn) {
 }
 
 func checkLogin(username string, passwd []byte) src.User {
-	var user src.User
-	user = src.SearchUser(username)
-	salt := src.Decode64(user.Salt)
-	hashedPasswd, err := src.ScryptHash(passwd, salt)
+	fmt.Println(username)
+	users := src.SearchUser(username)
+	fmt.Println(len(users))
+	fmt.Println("#####################################")
 
-	if err == nil {
-		if user.Password == src.Encode64(hashedPasswd) {
-			return user
+	if len(users) == 1 {
+		user := users[0]
+		salt := src.Decode64(user.Salt)
+		hashedPasswd, err := src.ScryptHash(passwd, salt)
+		if err == nil {
+			if user.Password == src.Encode64(hashedPasswd) {
+				return user
+			}
 		}
 	}
-
 	return src.User{}
 }
 
@@ -78,12 +83,22 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchUserHandler(w http.ResponseWriter, r *http.Request) {
-	var user src.User
+	username := r.FormValue("username")
+	users := src.SearchUser(username)
+	res, _ := json.Marshal(users)
+	w.Write(res)
+}
+
+func newChatHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 
-	user = src.SearchUser(username)
+	users := src.SearchUser(username)
 
-	res, _ := json.Marshal(user)
+	for index, user := range users {
+		fmt.Println(index)
+		user.Print()
+	}
+	res, _ := json.Marshal(users)
 	w.Write(res)
 }
 
@@ -92,6 +107,7 @@ func main() {
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/search_user", searchUserHandler)
+	http.HandleFunc("/new_chat", newChatHandler)
 
 	err := http.ListenAndServe(src.Port, nil)
 	if err != nil {
