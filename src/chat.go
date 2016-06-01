@@ -8,6 +8,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"net"
+	"time"
 )
 
 // Message structure
@@ -98,7 +99,6 @@ func OpenChat() {
 			if scanner.Scan() {
 				userInfo, _ := base64.StdEncoding.DecodeString(scanner.Text())
 				json.Unmarshal(userInfo, &user)
-				fmt.Println("user", user)
 			}
 
 			for scanner.Scan() { // escaneamos la conexión
@@ -139,7 +139,7 @@ func (c *Chat) NewMessage(user User, msg string) {
 
 	collection := session.DB(AuthDatabase).C("chat")
 
-	change := bson.M{"$push": bson.M{"messages": bson.M{"content": msg, "sender": user.ID}}}
+	change := bson.M{"$push": bson.M{"messages": bson.M{"id": bson.NewObjectId(), "content": msg, "sender": user.ID, "date": time.Now().String()}}}
 	err = collection.UpdateId(c.ID, change)
 	if err != nil {
 		fmt.Println("error new message", err)
