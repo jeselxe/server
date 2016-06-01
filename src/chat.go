@@ -49,6 +49,27 @@ func GetChat(id string) Chat {
 	return chat
 }
 
+//GetChats gets the chats the user has
+func GetChats(userid string) []Chat {
+	var chats []Chat
+
+	session, err := mgo.Dial(URI)
+	if err != nil {
+		fmt.Println("err")
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	usersCollection := session.DB(AuthDatabase).C("chat")
+	err = usersCollection.Find(bson.M{"components": bson.ObjectIdHex(userid)}).All(&chats)
+	fmt.Println("count", len(chats))
+	if err != nil {
+		fmt.Println("error find chat", err)
+	}
+
+	return chats
+}
+
 //CreateChat creates a chat between sender and receiver
 func CreateChat(sender, receiver User) bson.ObjectId {
 	var chat Chat

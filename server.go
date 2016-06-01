@@ -105,12 +105,22 @@ func newChatHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func getChatsHandler(w http.ResponseWriter, r *http.Request) {
+	userid := r.FormValue("userid")
+
+	chats := src.GetChats(userid)
+
+	res, _ := json.Marshal(chats)
+	w.Write(res)
+}
+
 func main() {
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/search_user", searchUserHandler)
 	http.HandleFunc("/new_chat", newChatHandler)
+	http.HandleFunc("/get_chats", getChatsHandler)
 
 	go src.OpenChat()
 
