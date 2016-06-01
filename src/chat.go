@@ -13,7 +13,7 @@ import (
 
 // Message structure
 type Message struct {
-	ID      bson.ObjectId `bson:"_id,omitempty"`
+	ID      bson.ObjectId `bson:"id"`
 	Content string        `bson:"content"`
 	Date    string        `bson:"date"`
 	Sender  string        `bson:"sender"`
@@ -62,7 +62,7 @@ func GetChats(userid string) []Chat {
 
 	usersCollection := session.DB(AuthDatabase).C("chat")
 	err = usersCollection.Find(bson.M{"components": bson.ObjectIdHex(userid)}).All(&chats)
-	fmt.Println("count", len(chats))
+
 	if err != nil {
 		fmt.Println("error find chat", err)
 	}
@@ -159,8 +159,7 @@ func (c *Chat) NewMessage(user User, msg string) {
 	session.SetMode(mgo.Monotonic, true)
 
 	collection := session.DB(AuthDatabase).C("chat")
-
-	change := bson.M{"$push": bson.M{"messages": bson.M{"id": bson.NewObjectId(), "content": msg, "sender": user.ID, "date": time.Now().String()}}}
+	change := bson.M{"$push": bson.M{"messages": bson.M{"id": bson.NewObjectId(), "content": msg, "sender": user.ID.Hex(), "date": time.Now().String()}}}
 	err = collection.UpdateId(c.ID, change)
 	if err != nil {
 		fmt.Println("error new message", err)
