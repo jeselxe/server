@@ -110,7 +110,6 @@ func (u *User) save() User {
 
 // SearchUser returns the User object given a user with username
 func SearchUser(username string) []User {
-	var user User
 	var users []User
 
 	session, err := mgo.Dial(URI)
@@ -121,16 +120,10 @@ func SearchUser(username string) []User {
 	session.SetMode(mgo.Monotonic, true)
 
 	usersCollection := session.DB(AuthDatabase).C("user")
-	err = usersCollection.Find(bson.M{"name": username}).One(&user)
-	if !user.Validate() {
-		err = usersCollection.Find(bson.M{"name": bson.RegEx{username, ""}}).All(&users)
-		fmt.Println(len(users))
-	} else {
-		users = append(users, user)
-	}
+	err = usersCollection.Find(bson.M{"name": bson.RegEx{username, ""}}).All(&users)
 
 	if err != nil {
-		log.Println("error count", err)
+		log.Println("error find users", err)
 	}
 
 	return users

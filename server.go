@@ -9,17 +9,10 @@ import (
 	"project/server/src"
 
 	"golang.org/x/net/websocket"
-	"gopkg.in/mgo.v2/bson"
 )
 
 // start docs
 // godoc -http=:6060
-
-// Message structure
-type Message struct {
-	ID      bson.ObjectId `bson:"_id,omitempty"`
-	Content string        `bson:"content"`
-}
 
 func chatHandler(ws *websocket.Conn) {
 	msg := make([]byte, 512)
@@ -105,7 +98,10 @@ func newChatHandler(w http.ResponseWriter, r *http.Request) {
 	sender.AddChat(chatid, senderKey)
 	receiver.AddChat(chatid, receiverKey)
 
-	res, _ := json.Marshal(chatid)
+	var chat src.Chat
+	chat = src.GetChat(chatid.Hex())
+
+	res, _ := json.Marshal(chat)
 	w.Write(res)
 }
 
