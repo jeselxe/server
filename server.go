@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"project/client/src/utils"
 	"project/server/src"
+	"strconv"
 
 	"golang.org/x/net/websocket"
 )
 
 // start docs
 // godoc -http=:6060
+var connectedUsers map[string]src.User
 
 func chatHandler(ws *websocket.Conn) {
 	msg := make([]byte, 512)
@@ -33,10 +35,8 @@ func chatHandler(ws *websocket.Conn) {
 }
 
 func checkLogin(username string, passwd []byte) src.User {
-	fmt.Println(username)
+	fmt.Println("Usuario <" + username + "> intenta loguearse.")
 	users := src.SearchUser(username)
-	fmt.Println(len(users))
-	fmt.Println("#####################################")
 
 	if len(users) == 1 {
 		user := users[0]
@@ -44,14 +44,18 @@ func checkLogin(username string, passwd []byte) src.User {
 		hashedPasswd, err := src.ScryptHash(passwd, salt)
 		if err == nil {
 			if user.Password == src.Encode64(hashedPasswd) {
+				fmt.Println("Login correcto.")
+				addConnectedUser(user)
 				return user
 			}
 		}
 	}
+	fmt.Println("Login rechazado.")
 	return src.User{}
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
+	// Check user chats and return them
 	username := r.FormValue("username")
 	pass := utils.Decode64(r.FormValue("pass"))
 
@@ -65,7 +69,6 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("pass")
 	pubKey := r.FormValue("pub")
 	privKey := r.FormValue("priv")
-
 	user, err := src.RegisterUser(username, password, pubKey, privKey)
 	if err != nil {
 		w.Write([]byte("{error: 'user exists'}"))
@@ -114,9 +117,38 @@ func getChatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	username := r.FormValue("username")
+	fmt.Println("Usuario <" + username + "> intenta hacer logout.")
+	removeConnectedUser(username)
+	fmt.Println("Logout correcto")
+	w.Write([]byte("Logout"))
+}
+
+func printConnectedUsers() {
+	index := 1
+	fmt.Println("Hay " + strconv.Itoa(len(connectedUsers)) + " usuarios conectados:")
+	for key := range connectedUsers {
+		fmt.Println(strconv.Itoa(index) + ": " + key)
+		index++
+	}
+}
+
+func addConnectedUser(user src.User) {
+	connectedUsers[user.Username] = user
+	printConnectedUsers()
+}
+
+func removeConnectedUser(username string) {
+	delete(connectedUsers, username)
+	printConnectedUsers()
+}
+
 func main() {
+	connectedUsers = make(map[string]src.User)
 	http.Handle("/chat", websocket.Handler(chatHandler))
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/logout", logoutHandler)
 	http.HandleFunc("/register", registerHandler)
 	http.HandleFunc("/search_user", searchUserHandler)
 	http.HandleFunc("/new_chat", newChatHandler)

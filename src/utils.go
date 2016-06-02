@@ -3,10 +3,13 @@ package src
 import (
 	"bytes"
 	"compress/zlib"
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/base64"
 	"io"
 	"log"
 	"math/rand"
+	"project/client/src/errorchecker"
 
 	"golang.org/x/crypto/scrypt"
 )
@@ -68,4 +71,25 @@ func HashWithRandomSalt(pass []byte) ([]byte, []byte) {
 	}
 
 	return dk, salt
+}
+
+// EncryptAES función para cifrar (con AES en este caso)
+func EncryptAES(data, key []byte) (out []byte) {
+	out = make([]byte, len(data)+16)         // reservamos espacio para el IV al principio
+	rand.Read(out[:16])                      // generamos el IV
+	blk, err := aes.NewCipher(key)           // cifrador en bloque (AES), usa key
+	errorchecker.Check("ERROR encrypt", err) // comprobamos el error
+	ctr := cipher.NewCTR(blk, out[:16])      // cifrador en flujo: modo CTR, usa IV
+	ctr.XORKeyStream(out[16:], data)         // ciframos los datos
+	return
+}
+
+// DecryptAES función para descifrar
+func DecryptAES(data, key []byte) (out []byte) {
+	out = make([]byte, len(data)-16)         // la salida no va a tener el IV
+	blk, err := aes.NewCipher(key)           // cifrador en bloque (AES), usa key
+	errorchecker.Check("ERROR decrypt", err) // comprobamos el error
+	ctr := cipher.NewCTR(blk, data[:16])     // cifrador en flujo: modo CTR, usa IV
+	ctr.XORKeyStream(out, data[16:])         // desciframos (doble cifrado) los datos
+	return
 }
