@@ -1,14 +1,17 @@
-package src
+package models
 
 import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
+	"project/server/src/constants"
+	"project/server/src/errorchecker"
+	"time"
+
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"net"
-	"time"
 )
 
 // Message structure
@@ -28,18 +31,24 @@ type Chat struct {
 	Messages   []Message       `bson:"messages"`
 }
 
+// ChatPrivateInfo struct
+type ChatPrivateInfo struct {
+	id    string
+	token string
+}
+
 //GetChat gets the chat info from the server
 func GetChat(id string) Chat {
 	var chat Chat
 
-	session, err := mgo.Dial(URI)
+	session, err := mgo.Dial(constants.URI)
 	if err != nil {
 		fmt.Println("err")
 	}
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	usersCollection := session.DB(AuthDatabase).C("chat")
+	usersCollection := session.DB(constants.AuthDatabase).C("chat")
 	err = usersCollection.FindId(bson.ObjectIdHex(id)).One(&chat)
 
 	if err != nil {
@@ -53,20 +62,17 @@ func GetChat(id string) Chat {
 func GetChats(userid string) []Chat {
 	var chats []Chat
 
-	session, err := mgo.Dial(URI)
+	session, err := mgo.Dial(constants.URI)
 	if err != nil {
 		fmt.Println("err")
 	}
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	usersCollection := session.DB(AuthDatabase).C("chat")
+	usersCollection := session.DB(constants.AuthDatabase).C("chat")
 	err = usersCollection.Find(bson.M{"components": bson.ObjectIdHex(userid)}).All(&chats)
 
-	if err != nil {
-		fmt.Println("error find chat", err)
-	}
-
+	errorchecker.Check("ERROR find chat", err)
 	return chats
 }
 
@@ -139,29 +145,27 @@ func OpenChat() {
 
 func (c *Chat) save() Chat {
 	var chat Chat
-	session, err := mgo.Dial(URI)
-	Check(err)
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	collection := session.DB(AuthDatabase).C("chat")
+	collection := session.DB(constants.AuthDatabase).C("chat")
 	err = collection.Insert(&c)
-	Check(err)
+	errorchecker.Check("ERROR inserting chat", err)
 
 	return chat
 }
 
 //NewMessage adds the message to the chat
 func (c *Chat) NewMessage(user User, msg string) {
-	session, err := mgo.Dial(URI)
-	Check(err)
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	collection := session.DB(AuthDatabase).C("chat")
+	collection := session.DB(constants.AuthDatabase).C("chat")
 	change := bson.M{"$push": bson.M{"messages": bson.M{"id": bson.NewObjectId(), "content": msg, "sender": user.ID.Hex(), "date": time.Now().String()}}}
 	err = collection.UpdateId(c.ID, change)
-	if err != nil {
-		fmt.Println("error new message", err)
-	}
+	errorchecker.Check("ERROR inserting message", err)
 }

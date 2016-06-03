@@ -1,4 +1,4 @@
-package src
+package utils
 
 import (
 	"bytes"
@@ -13,13 +13,6 @@ import (
 
 	"golang.org/x/crypto/scrypt"
 )
-
-// Check checks error and logs if is not nil
-func Check(e error) {
-	if e != nil {
-		log.Fatal(e)
-	}
-}
 
 // Compress función para comprimir
 func Compress(data []byte) []byte {
@@ -36,10 +29,10 @@ func Decompress(data []byte) []byte {
 
 	r, err := zlib.NewReader(bytes.NewReader(data)) // lector descomprime al leer
 
-	Check(err)       // comprobamos el error
-	io.Copy(&b, r)   // copiamos del descompresor (r) al buffer (b)
-	r.Close()        // cerramos el lector (buffering)
-	return b.Bytes() // devolvemos los datos descomprimidos
+	errorchecker.Check("ERROR decompress", err) // comprobamos el error
+	io.Copy(&b, r)                              // copiamos del descompresor (r) al buffer (b)
+	r.Close()                                   // cerramos el lector (buffering)
+	return b.Bytes()                            // devolvemos los datos descomprimidos
 }
 
 // Encode64 función para codificar de []bytes a string (Base64)
@@ -50,7 +43,7 @@ func Encode64(data []byte) string {
 // Decode64 función para decodificar de string a []bytes (Base64)
 func Decode64(s string) []byte {
 	b, err := base64.StdEncoding.DecodeString(s) // recupera el formato original
-	Check(err)                                   // comprobamos el error
+	errorchecker.Check("ERROR decoding", err)    // comprobamos el error
 	return b                                     // devolvemos los datos originales
 }
 
