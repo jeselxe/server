@@ -24,6 +24,7 @@ type User struct {
 
 // PublicUser structure
 type PublicUser struct {
+	ID       bson.ObjectId
 	Username string
 	PubKey   string
 }
@@ -133,6 +134,7 @@ func SearchUser(username string) User {
 // GetPublicUser function
 func (u *User) GetPublicUser() PublicUser {
 	var user PublicUser
+	user.ID = u.ID
 	user.Username = u.Username
 	user.PubKey = u.PubKey
 	return user
