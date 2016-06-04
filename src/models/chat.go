@@ -37,6 +37,11 @@ type ChatPrivateInfo struct {
 	token string
 }
 
+type canal struct {
+	chatid string
+	conn   []net.Conn
+}
+
 //GetChat gets the chat info from the server
 func GetChat(id string) Chat {
 	var chat Chat
@@ -89,8 +94,10 @@ func CreateChat(sender, receiver User) bson.ObjectId {
 	return chat.ID
 }
 
+var conectados []canal
+
 //OpenChat inits the chat
-func OpenChat() {
+func OpenChat(connectedUsers map[string]User) {
 	ln, err := net.Listen("tcp", "localhost:1337") // escucha en espera de conexión
 	if err != nil {
 		fmt.Println("ERROR", err)
@@ -128,19 +135,69 @@ func OpenChat() {
 				json.Unmarshal(userInfo, &user)
 			}
 
+			connectToChat(chat, conn)
+
 			for scanner.Scan() { // escaneamos la conexión
 				text := scanner.Text()
 
 				fmt.Println("cliente[", port, "]: ", text) // mostramos el mensaje del cliente
-				fmt.Fprintln(conn, scanner.Text())         // enviamos ack al cliente
-
+				for _, conectado := range conectados {
+					if conectado.chatid == chat.ID.Hex() {
+						for _, c := range conectado.conn {
+							if conn != c {
+								fmt.Fprintln(c, text)
+							}
+						}
+					}
+				}
 				chat.NewMessage(user, text)
 			}
-
+			disconnectFromChat(chat, conn)
 			conn.Close() // cerramos al finalizar el cliente (EOF se envía con ctrl+d o ctrl+z según el sistema)
 			fmt.Println("cierre[", port, "]")
 		}()
 	}
+}
+
+func connectToChat(chat Chat, conn net.Conn) {
+	existe := false
+	for i, conectado := range conectados {
+		if conectado.chatid == chat.ID.Hex() {
+			conectado.conn = append(conectado.conn, conn)
+			existe = true
+			conectados[i] = conectado
+			break
+		}
+	}
+	if !existe {
+		var c canal
+		c.chatid = chat.ID.Hex()
+		c.conn = append(c.conn, conn)
+		conectados = append(conectados, c)
+	}
+
+	fmt.Println("conectados", conectados)
+}
+
+func disconnectFromChat(chat Chat, conn net.Conn) {
+	for i, conectado := range conectados {
+		if conectado.chatid == chat.ID.Hex() {
+			var connection net.Conn
+			for _, c := range conectado.conn {
+				if c != conn {
+					connection = c
+				}
+			}
+			if connection != nil {
+				conectado.conn = []net.Conn{connection}
+			} else {
+				conectado.conn = []net.Conn{}
+			}
+			conectados[i] = conectado
+			break
+		}
+	}
+	fmt.Println("conectados", conectados)
 }
 
 func (c *Chat) save() Chat {

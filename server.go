@@ -156,7 +156,7 @@ func main() {
 	http.HandleFunc("/search_user", searchUsersHandler)
 	http.HandleFunc("/new_chat", newChatHandler)
 	http.HandleFunc("/get_chats", getChatsHandler)
-	go models.OpenChat()
+	go models.OpenChat(connectedUsers)
 	err := http.ListenAndServe(constants.Port, nil)
 	if err != nil {
 		fmt.Println("ListenAndServe error")
