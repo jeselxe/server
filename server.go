@@ -41,8 +41,6 @@ func checkLogin(username string, passwd []byte) models.User {
 
 	if user.Validate() {
 		salt := utils.Decode64(user.Salt)
-		fmt.Println(passwd)
-		fmt.Println(salt)
 		hashedPasswd, err := utils.ScryptHash(passwd, salt)
 		if err == nil {
 			if user.Password == utils.Encode64(hashedPasswd) {
@@ -63,18 +61,23 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := checkLogin(username, pass)
 	res, _ := json.Marshal(user)
+	user.Print()
 	w.Write(res)
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
+	fmt.Println("Usuario <" + username + "> intenta registrarse.")
 	password := r.FormValue("pass")
 	pubKey := r.FormValue("pub")
 	privKey := r.FormValue("priv")
 	user, err := models.RegisterUser(username, password, pubKey, privKey)
 	if err != nil {
+		fmt.Println("Usuario <" + username + "> registro rechazado.")
 		w.Write([]byte("{error: 'user exists'}"))
 	} else {
+		fmt.Println("Usuario <" + username + "> registrado correctamente.")
+		addConnectedUser(user)
 		res, _ := json.Marshal(user)
 		w.Write(res)
 	}
@@ -156,6 +159,6 @@ func main() {
 	go models.OpenChat()
 	err := http.ListenAndServe(constants.Port, nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: " + err.Error())
+		fmt.Println("ListenAndServe error")
 	}
 }

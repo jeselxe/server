@@ -59,7 +59,6 @@ func RegisterUser(username, password, pubKey, privKey string) (User, error) {
 		user.Salt = utils.Encode64(salt)
 		user.PubKey = pubKey
 		user.PrivKey = privKey
-		user.Print()
 		user = user.save()
 	}
 	return user, returnError
@@ -71,8 +70,8 @@ func (u *User) Print() {
 	fmt.Println(u.ID)
 	fmt.Println(u.Username)
 	fmt.Println(u.Password)
-	fmt.Println(u.PrivKey)
-	fmt.Println(u.PubKey)
+	fmt.Println(len(u.PrivKey))
+	fmt.Println(len(u.PubKey))
 	fmt.Println(u.Salt)
 	fmt.Println("################# END USER ###################")
 }

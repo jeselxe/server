@@ -2,10 +2,10 @@ package models
 
 import (
 	"bufio"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
+	"project/client/src/utils"
 	"project/server/src/constants"
 	"project/server/src/errorchecker"
 	"time"
@@ -117,14 +117,14 @@ func OpenChat() {
 			// Get chat info
 			var chat Chat
 			if scanner.Scan() {
-				chatInfo, _ := base64.StdEncoding.DecodeString(scanner.Text())
+				chatInfo := utils.Decode64(scanner.Text())
 				json.Unmarshal(chatInfo, &chat)
 			}
 
 			// Get user info
 			var user User
 			if scanner.Scan() {
-				userInfo, _ := base64.StdEncoding.DecodeString(scanner.Text())
+				userInfo := utils.Decode64(scanner.Text())
 				json.Unmarshal(userInfo, &user)
 			}
 
