@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"project/client/src/errorchecker"
-	"project/client/src/utils"
 	"project/server/src/constants"
+	"project/server/src/errorchecker"
+	"project/server/src/utils"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -19,7 +19,7 @@ type User struct {
 	Password string        `bson:"password"`
 	Salt     string        `bson:"salt"`
 	PubKey   string        `bson:"pubkey"`
-	PrivKey  string        `bson:"privkey"`
+	State    string        `bson:"state"`
 }
 
 // PublicUser structure
@@ -27,6 +27,22 @@ type PublicUser struct {
 	ID       bson.ObjectId
 	Username string
 	PubKey   string
+}
+
+// State user state to be retrieved by client
+type State struct {
+	PrivateKey string
+	Chats      []ChatPrivateInfo
+}
+
+//SetSalt func
+func (u *User) SetSalt(salt string) {
+	u.Salt = salt
+}
+
+//GetSalt func
+func (u *User) GetSalt() string {
+	return u.Salt
 }
 
 // Login given a username and password, it tries to return its info from DB
@@ -45,7 +61,7 @@ func Login(username string, password []byte) User {
 }
 
 // RegisterUser registered
-func RegisterUser(username, password, pubKey, privKey string) (User, error) {
+func RegisterUser(username, password, pubKey, state string) (User, error) {
 	var user User
 	var returnError error
 	users := SearchUsers(username)
@@ -59,35 +75,22 @@ func RegisterUser(username, password, pubKey, privKey string) (User, error) {
 		user.Password = utils.Encode64(hashedPassword)
 		user.Salt = utils.Encode64(salt)
 		user.PubKey = pubKey
-		user.PrivKey = privKey
-		user = user.save()
+		user.State = state
+		user = user.Save()
 	}
 	return user, returnError
 }
 
-// Print prints invoking user
-func (u *User) Print() {
-	fmt.Println("################### USER #####################")
-	fmt.Println(u.ID)
-	fmt.Println(u.Username)
-	fmt.Println(u.Password)
-	fmt.Println(len(u.PrivKey))
-	fmt.Println(len(u.PubKey))
-	fmt.Println(u.Salt)
-	fmt.Println("################# END USER ###################")
-}
-
-func (u *User) save() User {
+// Save func
+func (u *User) Save() User {
 	var user User
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
-
 	c := session.DB(constants.AuthDatabase).C("user")
 	err = c.Insert(&u)
 	errorchecker.Check("ERROR inserting user", err)
-
 	user = SearchUser(u.Username)
 	return user
 }
@@ -96,29 +99,24 @@ func (u *User) save() User {
 func SearchUsers(username string) []PublicUser {
 	var users []User
 	var publicUsers []PublicUser
-
 	session, err := mgo.Dial(constants.URI)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
-
 	usersCollection := session.DB(constants.AuthDatabase).C("user")
 	err = usersCollection.Find(bson.M{"name": bson.RegEx{username, "i"}}).All(&users)
 	errorchecker.Check("ERROR searching users", err)
-
 	for _, user := range users {
 		publicUsers = append(publicUsers, user.GetPublicUser())
 	}
-
 	return publicUsers
 }
 
 // SearchUser returns the User object given a user with username
 func SearchUser(username string) User {
 	var user User
-
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
@@ -143,17 +141,13 @@ func (u *User) GetPublicUser() PublicUser {
 //AddChat adds the chat token to the user profile
 func (u *User) AddChat(chatid bson.ObjectId, token string) {
 	session, err := mgo.Dial(constants.URI)
-
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
-
 	c := session.DB(constants.AuthDatabase).C("user")
-
 	colQuerier := bson.M{"name": u.Username}
 	change := bson.M{"$push": bson.M{"chats": bson.M{"id": chatid, "token": token}}}
 	err = c.Update(colQuerier, change)
-
 	errorchecker.Check("ERROR inserting chat", err)
 }
 
@@ -163,4 +157,16 @@ func (u *User) Validate() bool {
 		return false
 	}
 	return true
+}
+
+// Print prints invoking user
+func (u *User) Print() {
+	fmt.Println("################### USER #####################")
+	fmt.Println(u.ID)
+	fmt.Println(u.Username)
+	fmt.Println(u.Password)
+	fmt.Println(len(u.PubKey))
+	fmt.Println(u.State)
+	fmt.Println(u.Salt)
+	fmt.Println("################# END USER ###################")
 }

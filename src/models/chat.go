@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"project/client/src/utils"
 	"project/server/src/constants"
 	"project/server/src/errorchecker"
+	"project/server/src/utils"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -33,8 +33,9 @@ type Chat struct {
 
 // ChatPrivateInfo struct
 type ChatPrivateInfo struct {
-	id    string
-	token string
+	Username string
+	ChatID   string
+	Token    string
 }
 
 type canal struct {
@@ -61,6 +62,27 @@ func GetChat(id string) Chat {
 	}
 
 	return chat
+}
+
+//RecuperarEstado func
+func RecuperarEstado(username string) map[string]ChatPrivateInfo {
+	var chats []ChatPrivateInfo
+	var chatsReturn map[string]ChatPrivateInfo
+	session, err := mgo.Dial(constants.URI)
+	if err != nil {
+		fmt.Println("err")
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	usersCollection := session.DB(constants.AuthDatabase).C("chatinfo")
+	err = usersCollection.Find(bson.M{"username": username}).All(&chats)
+	errorchecker.Check("ERROR buscando chat info", err)
+
+	for _, cht := range chats {
+		chatsReturn[cht.ChatID] = cht
+	}
+	return chatsReturn
 }
 
 //GetChats gets the chats the user has
@@ -212,6 +234,23 @@ func (c *Chat) save() Chat {
 	errorchecker.Check("ERROR inserting chat", err)
 
 	return chat
+}
+
+// SaveChatInfo func
+func SaveChatInfo(username, token string, chatid bson.ObjectId) {
+	var chatInfo ChatPrivateInfo
+	chatInfo.Token = token
+	chatInfo.Username = username
+	chatInfo.ChatID = chatid.Hex()
+
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	collection := session.DB(constants.AuthDatabase).C("chatinfo")
+	err = collection.Insert(&chatInfo)
+	errorchecker.Check("ERROR inserting chatInfo", err)
 }
 
 //NewMessage adds the message to the chat
