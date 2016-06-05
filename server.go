@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"project/client/src/errorchecker"
 	"project/server/src/constants"
 	"project/server/src/models"
 	"project/server/src/utils"
@@ -92,30 +93,18 @@ func searchUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func newChatHandler(w http.ResponseWriter, r *http.Request) {
-	var user models.User
 	senderUsername := r.FormValue("sender")
-	senderState := r.FormValue("senderState")
-
-	user = models.SearchUser(senderUsername)
-
-	user.State = senderState
-	user.Save()
-
 	receivername := r.FormValue("receiver")
 	receiverKey := r.FormValue("receiverkey")
 
-	sender := models.SearchUser(senderUsername)
+	user := models.SearchUser(senderUsername)
 	receiver := models.SearchUser(receivername)
 
-	chatid := models.CreateChat(sender, receiver)
-
+	fmt.Println(receiverKey)
+	chatid := models.CreateChat(user, receiver)
 	models.SaveChatInfo(receiver.Username, receiverKey, chatid)
-
-	receiver.AddChat(chatid, receiverKey)
-
 	var chat models.Chat
 	chat = models.GetChat(chatid.Hex())
-
 	res, _ := json.Marshal(chat)
 	w.Write(res)
 }
@@ -156,13 +145,35 @@ func removeConnectedUser(username string) {
 	printConnectedUsers()
 }
 
-func updateStateHandler(w http.ResponseWriter, r *http.Request) {
+func getStateHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	fmt.Println("Usuario <" + username + "> intenta recuperar su estado.")
 	chatsInfo := models.RecuperarEstado(username)
-	byteChats, _ := json.Marshal(chatsInfo)
+	fmt.Println("CHATS TOKEN INFO")
+	for _, ch := range chatsInfo {
+		fmt.Println(ch.Token)
+	}
+	byteChats, err := json.Marshal(chatsInfo)
+	if errorchecker.Check("ERROR Marshal state", err) {
+		fmt.Println("Usuario <" + username + "> error recuperando su estado.")
+	}
 	byteChats = utils.Compress(byteChats)
+	fmt.Println("Usuario <" + username + "> ha recuperado su estado.")
 	w.Write(byteChats)
+}
+
+func updateStateHandler(w http.ResponseWriter, r *http.Request) {
+	username := r.FormValue("username")
+	state := r.FormValue("state")
+
+	fmt.Println("Usuario <" + username + "> intenta actualizar su estado.")
+	user := models.SearchUser(username)
+	user.Print()
+	user.State = state
+	user.Print()
+
+	user.UpdateState()
+	w.Write([]byte("OK"))
 }
 
 func main() {
@@ -174,6 +185,7 @@ func main() {
 	http.HandleFunc("/search_user", searchUsersHandler)
 	http.HandleFunc("/new_chat", newChatHandler)
 	http.HandleFunc("/get_chats", getChatsHandler)
+	http.HandleFunc("/get_state", getStateHandler)
 	http.HandleFunc("/update_state", updateStateHandler)
 	go models.OpenChat(connectedUsers)
 	err := http.ListenAndServe(constants.Port, nil)

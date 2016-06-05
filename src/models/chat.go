@@ -67,7 +67,7 @@ func GetChat(id string) Chat {
 //RecuperarEstado func
 func RecuperarEstado(username string) map[string]ChatPrivateInfo {
 	var chats []ChatPrivateInfo
-	var chatsReturn map[string]ChatPrivateInfo
+	chatsReturn := map[string]ChatPrivateInfo{}
 	session, err := mgo.Dial(constants.URI)
 	if err != nil {
 		fmt.Println("err")

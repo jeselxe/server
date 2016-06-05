@@ -95,6 +95,23 @@ func (u *User) Save() User {
 	return user
 }
 
+// UpdateState func
+func (u *User) UpdateState() {
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+	fmt.Println("SEXOOO***********************************")
+	u.Print()
+	c := session.DB(constants.AuthDatabase).C("user")
+	update := bson.M{"$set": bson.M{"state": u.State}}
+	err = c.UpdateId(u.ID, update)
+	user := SearchUser(u.Username)
+	user.Print()
+	fmt.Println("SEXOOO***********************************")
+	errorchecker.Check("ERROR inserting user", err)
+}
+
 // SearchUsers returns the list of User objects containing the given username as part of theirs
 func SearchUsers(username string) []PublicUser {
 	var users []User
