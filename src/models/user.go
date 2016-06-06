@@ -45,6 +45,35 @@ func (u *User) GetSalt() string {
 	return u.Salt
 }
 
+//GetUsernames func
+func GetUsernames(ids []string) map[string]string {
+	usernames := make(map[string]string)
+
+	for _, id := range ids {
+		user := GetByID(id)
+		usernames[id] = user.Username
+	}
+	return usernames
+}
+
+//GetByID func
+func GetByID(id string) User {
+	var user User
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+	usersCollection := session.DB(constants.AuthDatabase).C("user")
+	err = usersCollection.FindId(bson.ObjectIdHex(id)).One(&user)
+	if !errorchecker.Check("ERROR searching user", err) {
+		fmt.Println("^***************************")
+		fmt.Println(user.Username)
+		fmt.Println("^***************************")
+		return user
+	}
+	return User{}
+}
+
 // Login given a username and password, it tries to return its info from DB
 func Login(username string, password []byte) User {
 	user := SearchUser(username)

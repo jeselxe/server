@@ -60,7 +60,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	// Check user chats and return them
 	username := r.FormValue("username")
 	pass := utils.Decode64(r.FormValue("pass"))
-
 	user := checkLogin(username, pass)
 	res, _ := json.Marshal(user)
 	user.Print()
@@ -93,16 +92,19 @@ func searchUsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func newChatHandler(w http.ResponseWriter, r *http.Request) {
+	var receivers []models.User
+	var tokens []models.ChatToken
 	senderUsername := r.FormValue("sender")
-	receivername := r.FormValue("receiver")
-	receiverKey := r.FormValue("receiverkey")
-
-	user := models.SearchUser(senderUsername)
-	receiver := models.SearchUser(receivername)
-
-	fmt.Println(receiverKey)
-	chatid := models.CreateChat(user, receiver)
-	models.SaveChatInfo(receiver.Username, receiverKey, chatid)
+	chatType := r.FormValue("type")
+	receiversTokens := utils.Decode64(r.FormValue("tokens"))
+	json.Unmarshal(receiversTokens, &tokens)
+	sender := models.SearchUser(senderUsername)
+	for _, token := range tokens {
+		user := models.SearchUser(token.Username)
+		receivers = append(receivers, user)
+	}
+	chatid := models.CreateChat(sender, receivers, chatType)
+	models.SaveChatInfo(tokens, chatid)
 	var chat models.Chat
 	chat = models.GetChat(chatid.Hex())
 	res, _ := json.Marshal(chat)
@@ -111,9 +113,7 @@ func newChatHandler(w http.ResponseWriter, r *http.Request) {
 
 func getChatsHandler(w http.ResponseWriter, r *http.Request) {
 	userid := r.FormValue("userid")
-
 	chats := models.GetChats(userid)
-
 	res, _ := json.Marshal(chats)
 	w.Write(res)
 }
@@ -164,12 +164,19 @@ func updateStateHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Usuario <" + username + "> intenta actualizar su estado.")
 	user := models.SearchUser(username)
-	user.Print()
 	user.State = state
-	user.Print()
-
 	user.UpdateState()
 	w.Write([]byte("OK"))
+}
+
+func getChatNamesHandler(w http.ResponseWriter, r *http.Request) {
+	var usernames map[string]string
+	var usersIDS []string
+	users := r.FormValue("users")
+	json.Unmarshal(utils.Decode64(users), &usersIDS)
+	usernames = models.GetUsernames(usersIDS)
+	res, _ := json.Marshal(usernames)
+	w.Write(res)
 }
 
 func main() {
@@ -181,6 +188,7 @@ func main() {
 	http.HandleFunc("/search_user", searchUsersHandler)
 	http.HandleFunc("/new_chat", newChatHandler)
 	http.HandleFunc("/get_chats", getChatsHandler)
+	http.HandleFunc("/get_chat_names", getChatNamesHandler)
 	http.HandleFunc("/get_state", getStateHandler)
 	http.HandleFunc("/update_state", updateStateHandler)
 	go models.OpenChat(connectedUsers)

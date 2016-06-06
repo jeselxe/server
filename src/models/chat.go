@@ -38,6 +38,12 @@ type ChatPrivateInfo struct {
 	Token    string
 }
 
+// ChatToken struct
+type ChatToken struct {
+	Username string
+	Token    string
+}
+
 type canal struct {
 	chatid string
 	conn   []net.Conn
@@ -105,14 +111,18 @@ func GetChats(userid string) []Chat {
 }
 
 //CreateChat creates a chat between sender and receiver
-func CreateChat(sender, receiver User) bson.ObjectId {
+func CreateChat(sender User, receivers []User, chatType string) bson.ObjectId {
 	var chat Chat
-
+	var components []bson.ObjectId
 	chat.ID = bson.NewObjectId()
-	chat.Type = "individual"
-	chat.Name = sender.Username + " y " + receiver.Username
-	chat.Components = []bson.ObjectId{sender.ID, receiver.ID}
-
+	chat.Type = chatType
+	chat.Name = sender.Username
+	components = append(components, sender.ID)
+	for _, receiver := range receivers {
+		chat.Name = chat.Name + " y " + receiver.Username
+		components = append(components, receiver.ID)
+	}
+	chat.Components = components
 	chat.save()
 	return chat.ID
 }
@@ -238,11 +248,16 @@ func (c *Chat) save() Chat {
 }
 
 // SaveChatInfo func
-func SaveChatInfo(username, token string, chatid bson.ObjectId) {
+func SaveChatInfo(tokens []ChatToken, chatid bson.ObjectId) {
+	var infoChats []ChatPrivateInfo
 	var chatInfo ChatPrivateInfo
-	chatInfo.Token = token
-	chatInfo.Username = username
-	chatInfo.ChatID = chatid.Hex()
+
+	for _, token := range tokens {
+		chatInfo.Token = token.Token
+		chatInfo.Username = token.Username
+		chatInfo.ChatID = chatid.Hex()
+		infoChats = append(infoChats, chatInfo)
+	}
 
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
@@ -250,8 +265,10 @@ func SaveChatInfo(username, token string, chatid bson.ObjectId) {
 	session.SetMode(mgo.Monotonic, true)
 
 	collection := session.DB(constants.AuthDatabase).C("chatinfo")
-	err = collection.Insert(&chatInfo)
-	errorchecker.Check("ERROR inserting chatInfo", err)
+	for _, chat := range infoChats {
+		err = collection.Insert(&chat)
+		errorchecker.Check("ERROR inserting chatsInfo", err)
+	}
 }
 
 //NewMessage adds the message to the chat
