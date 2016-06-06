@@ -2,9 +2,6 @@
 	"ImportPath": "project/server",
 	"GoVersion": "go1.6",
 	"GodepVersion": "v60",
-	"Packages": [
-		"./..."
-	],
 	"Deps": [
 		{
 			"ImportPath": "golang.org/x/crypto/pbkdf2",
