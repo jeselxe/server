@@ -184,7 +184,7 @@ func main() {
 	http.HandleFunc("/get_state", getStateHandler)
 	http.HandleFunc("/update_state", updateStateHandler)
 	go models.OpenChat(connectedUsers)
-	err := http.ListenAndServe(constants.Port, nil)
+	err := http.ListenAndServeTLS(constants.Port, "cert.pem", "key.pem", nil)
 	if err != nil {
 		fmt.Println("ListenAndServe error")
 	}
