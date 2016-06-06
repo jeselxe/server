@@ -149,10 +149,6 @@ func getStateHandler(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	fmt.Println("Usuario <" + username + "> intenta recuperar su estado.")
 	chatsInfo := models.RecuperarEstado(username)
-	fmt.Println("CHATS TOKEN INFO")
-	for _, ch := range chatsInfo {
-		fmt.Println(ch.Token)
-	}
 	byteChats, err := json.Marshal(chatsInfo)
 	if errorchecker.Check("ERROR Marshal state", err) {
 		fmt.Println("Usuario <" + username + "> error recuperando su estado.")

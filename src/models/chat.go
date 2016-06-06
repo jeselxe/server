@@ -75,12 +75,13 @@ func RecuperarEstado(username string) map[string]ChatPrivateInfo {
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
-	usersCollection := session.DB(constants.AuthDatabase).C("chatinfo")
-	err = usersCollection.Find(bson.M{"username": username}).All(&chats)
+	chatInfoCollection := session.DB(constants.AuthDatabase).C("chatinfo")
+	err = chatInfoCollection.Find(bson.M{"username": username}).All(&chats)
 	errorchecker.Check("ERROR buscando chat info", err)
 
 	for _, cht := range chats {
 		chatsReturn[cht.ChatID] = cht
+		chatInfoCollection.Remove(bson.M{"username": username})
 	}
 	return chatsReturn
 }
