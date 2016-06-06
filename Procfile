@@ -1,1 +1,1 @@
-web: secure-chat
+web: server
