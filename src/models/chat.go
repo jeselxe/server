@@ -2,6 +2,7 @@ package models
 
 import (
 	"bufio"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -127,11 +128,24 @@ func CreateChat(sender User, receivers []User, chatType string) bson.ObjectId {
 	return chat.ID
 }
 
+func tcpTls(uri, certFile, keyFile string) (net.Listener, error) {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+
+	if err != nil {
+		fmt.Println("cert", err)
+	}
+
+	config := tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+	return tls.Listen("tcp", uri, &config)
+}
+
 var conectados []canal
 
 //OpenChat inits the chat
 func OpenChat(connectedUsers map[string]User) {
-	ln, err := net.Listen("tcp", "localhost:1337") // escucha en espera de conexión
+	ln, err := tcpTls("localhost:1337", "cert.pem", "key.pem") // escucha en espera de conexión
 	if err != nil {
 		fmt.Println("ERROR", err)
 	}
