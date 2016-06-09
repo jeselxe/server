@@ -33,6 +33,7 @@ type PublicUser struct {
 type State struct {
 	PrivateKey string
 	Chats      []ChatPrivateInfo
+	Contacts   []PublicUser
 }
 
 //SetSalt func
