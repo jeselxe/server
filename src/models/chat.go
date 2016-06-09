@@ -17,10 +17,16 @@ import (
 
 // Message structure
 type Message struct {
-	ID      bson.ObjectId `bson:"id"`
-	Content string        `bson:"content"`
-	Date    string        `bson:"date"`
-	Sender  string        `bson:"sender"`
+	Content []byte
+	Type    MessageType
+	Date    string
+	Sender  string
+}
+
+//MessageType struct
+type MessageType struct {
+	Type string
+	Name string
 }
 
 //Chat structure
@@ -128,7 +134,7 @@ func CreateChat(sender User, receivers []User, chatType string) bson.ObjectId {
 	return chat.ID
 }
 
-func tcpTls(uri, certFile, keyFile string) (net.Listener, error) {
+func tcpTLS(uri, certFile, keyFile string) (net.Listener, error) {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 
 	if err != nil {
@@ -143,9 +149,19 @@ func tcpTls(uri, certFile, keyFile string) (net.Listener, error) {
 
 var conectados []canal
 
+//Print func
+func (m *Message) Print() {
+	fmt.Println("********** MESSAGE **********")
+	fmt.Println(m.Sender)
+	fmt.Println(m.Date)
+	fmt.Println(m.Type.Type)
+	fmt.Println("*****************************")
+
+}
+
 //OpenChat inits the chat
 func OpenChat(connectedUsers map[string]User) {
-	ln, err := tcpTls("localhost:1337", "cert.pem", "key.pem") // escucha en espera de conexión
+	ln, err := tcpTLS("localhost:1337", "cert.pem", "key.pem") // escucha en espera de conexión
 	if err != nil {
 		fmt.Println("ERROR", err)
 	}
@@ -183,21 +199,26 @@ func OpenChat(connectedUsers map[string]User) {
 			}
 
 			connectToChat(chat, conn)
+			var message Message
 
 			for scanner.Scan() { // escaneamos la conexión
-				text := scanner.Text()
+				data := scanner.Text()
+				receiveData := utils.Decode64(data)
+				err := json.Unmarshal(receiveData, &message)
+				errorchecker.Check("ERROR unmarshal", err)
+				message.Print()
 
-				fmt.Println("cliente[", port, "]: ", text) // mostramos el mensaje del cliente
+				fmt.Println("cliente[", port, "]: <", message.Type, "> ", message.Content) // mostramos el mensaje del cliente
 				for _, conectado := range conectados {
 					if conectado.chatid == chat.ID.Hex() {
 						for _, c := range conectado.conn {
 							if conn != c {
-								fmt.Fprintln(c, text)
+								fmt.Fprintln(c, data)
 							}
 						}
 					}
 				}
-				chat.NewMessage(user, text)
+				chat.NewMessage(user, message)
 			}
 			disconnectFromChat(chat, conn)
 			conn.Close() // cerramos al finalizar el cliente (EOF se envía con ctrl+d o ctrl+z según el sistema)
@@ -286,14 +307,20 @@ func SaveChatInfo(tokens []ChatToken, chatid bson.ObjectId) {
 }
 
 //NewMessage adds the message to the chat
-func (c *Chat) NewMessage(user User, msg string) {
+func (c *Chat) NewMessage(user User, message Message) {
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 
 	collection := session.DB(constants.AuthDatabase).C("chat")
-	change := bson.M{"$push": bson.M{"messages": bson.M{"id": bson.NewObjectId(), "content": msg, "sender": user.ID.Hex(), "date": time.Now().String()}}}
+	change := bson.M{"$push": bson.M{
+		"messages": bson.M{
+			"id":      bson.NewObjectId(),
+			"content": message.Content,
+			"sender":  user.Username,
+			"type":    message.Type,
+			"date":    time.Now().String()}}}
 	err = collection.UpdateId(c.ID, change)
 	errorchecker.Check("ERROR inserting message", err)
 }
