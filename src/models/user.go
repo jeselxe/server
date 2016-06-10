@@ -67,9 +67,6 @@ func GetByID(id string) User {
 	usersCollection := session.DB(constants.AuthDatabase).C("user")
 	err = usersCollection.FindId(bson.ObjectIdHex(id)).One(&user)
 	if !errorchecker.Check("ERROR searching user", err) {
-		fmt.Println("^***************************")
-		fmt.Println(user.Username)
-		fmt.Println("^***************************")
 		return user
 	}
 	return User{}
@@ -191,6 +188,17 @@ func (u *User) AddChat(chatid bson.ObjectId, token string) {
 	change := bson.M{"$push": bson.M{"chats": bson.M{"id": chatid, "token": token}}}
 	err = c.Update(colQuerier, change)
 	errorchecker.Check("ERROR inserting chat", err)
+}
+
+//GetUsersByID func
+func GetUsersByID(users []string) []PublicUser {
+	var returnUsers []PublicUser
+	var user User
+	for _, ID := range users {
+		user = GetByID(ID)
+		returnUsers = append(returnUsers, user.GetPublicUser())
+	}
+	return returnUsers
 }
 
 // Validate given a user u it returns whether its attributes are valid or not

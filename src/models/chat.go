@@ -9,7 +9,6 @@ import (
 	"project/server/src/constants"
 	"project/server/src/errorchecker"
 	"project/server/src/utils"
-	"time"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -34,6 +33,7 @@ type Chat struct {
 	ID         bson.ObjectId   `bson:"_id,omitempty"`
 	Name       string          `bson:"name"`
 	Type       string          `bson:"type"`
+	Admin      string          `bson:"admin"`
 	Components []bson.ObjectId `bson:"components"`
 	Messages   []Message       `bson:"messages"`
 }
@@ -118,15 +118,15 @@ func GetChats(userid string) []Chat {
 }
 
 //CreateChat creates a chat between sender and receiver
-func CreateChat(sender User, receivers []User, chatType string) bson.ObjectId {
+func CreateChat(sender User, receivers []User, name, chatType string) bson.ObjectId {
 	var chat Chat
 	var components []bson.ObjectId
 	chat.ID = bson.NewObjectId()
+	chat.Admin = sender.Username
 	chat.Type = chatType
-	chat.Name = sender.Username
+	chat.Name = name
 	components = append(components, sender.ID)
 	for _, receiver := range receivers {
-		chat.Name = chat.Name + " y " + receiver.Username
 		components = append(components, receiver.ID)
 	}
 	chat.Components = components
@@ -157,6 +157,25 @@ func (m *Message) Print() {
 	fmt.Println(m.Type.Type)
 	fmt.Println("*****************************")
 
+}
+
+//GetAdminChats func
+func GetAdminChats(username string) []Chat {
+	var chats []Chat
+
+	session, err := mgo.Dial(constants.URI)
+	if err != nil {
+		fmt.Println("err")
+	}
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	usersCollection := session.DB(constants.AuthDatabase).C("chat")
+	err = usersCollection.Find(bson.M{"admin": username}).All(&chats)
+
+	errorchecker.Check("ERROR seraching admin chats", err)
+
+	return chats
 }
 
 //OpenChat inits the chat
@@ -206,7 +225,6 @@ func OpenChat(connectedUsers map[string]User) {
 				receiveData := utils.Decode64(data)
 				err := json.Unmarshal(receiveData, &message)
 				errorchecker.Check("ERROR unmarshal", err)
-				message.Print()
 
 				fmt.Println("cliente[", port, "]: <", message.Type, "> ", message.Content) // mostramos el mensaje del cliente
 				for _, conectado := range conectados {
@@ -320,7 +338,34 @@ func (c *Chat) NewMessage(user User, message Message) {
 			"content": message.Content,
 			"sender":  user.Username,
 			"type":    message.Type,
-			"date":    time.Now().String()}}}
+			"date":    message.Date}}}
 	err = collection.UpdateId(c.ID, change)
 	errorchecker.Check("ERROR inserting message", err)
+}
+
+//DeleteUsers func
+func (c *Chat) DeleteUsers(users []PublicUser) {
+	var emptyMessages []Message
+	for i, component := range c.Components {
+		for _, deleteComponent := range users {
+			if component == deleteComponent.ID {
+				c.Components[i] = c.Components[len(c.Components)-1]
+				c.Components = c.Components[:len(c.Components)-1]
+			}
+		}
+	}
+	fmt.Println(c.Components)
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	collection := session.DB(constants.AuthDatabase).C("chat")
+
+	change := bson.M{"$set": bson.M{"components": c.Components, "messages": emptyMessages}}
+	err = collection.UpdateId(c.ID, change)
+	if !errorchecker.Check("Error actualizando chat components", err) {
+		fmt.Println("Chat components actualizados")
+	}
+
 }
