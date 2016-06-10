@@ -43,7 +43,6 @@ func checkLogin(username string, passwd []byte) models.User {
 	user := models.SearchUser(username)
 
 	if user.Validate() {
-		fmt.Println(user.GetSalt())
 		salt := utils.Decode64(user.GetSalt())
 		hashedPasswd, err := utils.ScryptHash(passwd, salt)
 		if err == nil {
@@ -64,7 +63,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	pass := utils.Decode64(r.FormValue("pass"))
 	user := checkLogin(username, pass)
 	res, _ := json.Marshal(user)
-	user.Print()
 	w.Write(res)
 }
 
@@ -181,7 +179,7 @@ func getAdminChatsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getChatUsersHandler(w http.ResponseWriter, r *http.Request) {
-	var usernames []string
+	var usernames []bson.ObjectId
 	var users []models.PublicUser
 
 	data := r.FormValue("users")

@@ -51,21 +51,21 @@ func GetUsernames(ids []string) map[string]string {
 	usernames := make(map[string]string)
 
 	for _, id := range ids {
-		user := GetByID(id)
+		user := GetByID(bson.ObjectIdHex(id))
 		usernames[id] = user.Username
 	}
 	return usernames
 }
 
 //GetByID func
-func GetByID(id string) User {
+func GetByID(id bson.ObjectId) User {
 	var user User
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 	usersCollection := session.DB(constants.AuthDatabase).C("user")
-	err = usersCollection.FindId(bson.ObjectIdHex(id)).One(&user)
+	err = usersCollection.FindId(id).One(&user)
 	if !errorchecker.Check("ERROR searching user", err) {
 		return user
 	}
@@ -191,7 +191,7 @@ func (u *User) AddChat(chatid bson.ObjectId, token string) {
 }
 
 //GetUsersByID func
-func GetUsersByID(users []string) []PublicUser {
+func GetUsersByID(users []bson.ObjectId) []PublicUser {
 	var returnUsers []PublicUser
 	var user User
 	for _, ID := range users {
