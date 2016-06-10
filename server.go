@@ -11,6 +11,8 @@ import (
 	"project/server/src/utils"
 	"strconv"
 
+	"gopkg.in/mgo.v2/bson"
+
 	"golang.org/x/net/websocket"
 )
 
@@ -41,7 +43,6 @@ func checkLogin(username string, passwd []byte) models.User {
 	user := models.SearchUser(username)
 
 	if user.Validate() {
-		fmt.Println(user.GetSalt())
 		salt := utils.Decode64(user.GetSalt())
 		hashedPasswd, err := utils.ScryptHash(passwd, salt)
 		if err == nil {
@@ -62,7 +63,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	pass := utils.Decode64(r.FormValue("pass"))
 	user := checkLogin(username, pass)
 	res, _ := json.Marshal(user)
-	user.Print()
 	w.Write(res)
 }
 
@@ -96,6 +96,7 @@ func newChatHandler(w http.ResponseWriter, r *http.Request) {
 	var tokens []models.ChatToken
 	senderUsername := r.FormValue("sender")
 	chatType := r.FormValue("type")
+	name := r.FormValue("name")
 	receiversTokens := utils.Decode64(r.FormValue("tokens"))
 	json.Unmarshal(receiversTokens, &tokens)
 	sender := models.SearchUser(senderUsername)
@@ -103,7 +104,7 @@ func newChatHandler(w http.ResponseWriter, r *http.Request) {
 		user := models.SearchUser(token.Username)
 		receivers = append(receivers, user)
 	}
-	chatid := models.CreateChat(sender, receivers, chatType)
+	chatid := models.CreateChat(sender, receivers, name, chatType)
 	models.SaveChatInfo(tokens, chatid)
 	var chat models.Chat
 	chat = models.GetChat(chatid.Hex())
@@ -169,14 +170,68 @@ func updateStateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("OK"))
 }
 
-func getChatNamesHandler(w http.ResponseWriter, r *http.Request) {
-	var usernames map[string]string
-	var usersIDS []string
-	users := r.FormValue("users")
-	json.Unmarshal(utils.Decode64(users), &usersIDS)
-	usernames = models.GetUsernames(usersIDS)
-	res, _ := json.Marshal(usernames)
+func getAdminChatsHandler(w http.ResponseWriter, r *http.Request) {
+	var chats []models.Chat
+	username := r.FormValue("username")
+	chats = models.GetAdminChats(username)
+	res, _ := json.Marshal(chats)
 	w.Write(res)
+}
+
+func getChatUsersHandler(w http.ResponseWriter, r *http.Request) {
+	var usernames []bson.ObjectId
+	var users []models.PublicUser
+
+	data := r.FormValue("users")
+	bytes := utils.Decode64(data)
+	json.Unmarshal(bytes, &usernames)
+	users = models.GetUsersByID(usernames)
+	res, _ := json.Marshal(users)
+	w.Write(res)
+}
+
+func deleteChatUsersHandler(w http.ResponseWriter, r *http.Request) {
+	var users []models.PublicUser
+	var chat models.Chat
+	usersStr := r.FormValue("users")
+	chatStr := r.FormValue("chat")
+	dataUser := utils.Decode64(usersStr)
+	dataChat := utils.Decode64(chatStr)
+	json.Unmarshal(dataUser, &users)
+	json.Unmarshal(dataChat, &chat)
+	chat.DeleteUsers(users)
+	chatBytes, _ := json.Marshal(chat)
+	w.Write(chatBytes)
+}
+
+func addChatUsersHandler(w http.ResponseWriter, r *http.Request) {
+	var tokens []models.ChatToken
+	var chat models.Chat
+	tokensStr := r.FormValue("tokens")
+	chatStr := r.FormValue("chat")
+	dataTokens := utils.Decode64(tokensStr)
+	dataChat := utils.Decode64(chatStr)
+	json.Unmarshal(dataTokens, &tokens)
+	json.Unmarshal(dataChat, &chat)
+
+	chat.AddUsers(tokens)
+
+	chatBytes, _ := json.Marshal(chat)
+	w.Write(chatBytes)
+}
+
+func updateChatKeyHandler(w http.ResponseWriter, r *http.Request) {
+	var receivers []models.User
+	var tokens []models.ChatToken
+	chatid := r.FormValue("chat")
+	receiversTokens := utils.Decode64(r.FormValue("tokens"))
+	json.Unmarshal(receiversTokens, &tokens)
+	for _, token := range tokens {
+		user := models.SearchUser(token.Username)
+		receivers = append(receivers, user)
+	}
+	models.SaveChatInfo(tokens, bson.ObjectIdHex(chatid))
+	w.Write([]byte("UPDATED"))
 }
 
 func main() {
@@ -188,9 +243,14 @@ func main() {
 	http.HandleFunc("/search_user", searchUsersHandler)
 	http.HandleFunc("/new_chat", newChatHandler)
 	http.HandleFunc("/get_chats", getChatsHandler)
-	http.HandleFunc("/get_chat_names", getChatNamesHandler)
+	http.HandleFunc("/update_chat_key", updateChatKeyHandler)
+	http.HandleFunc("/get_admin_chats", getAdminChatsHandler)
 	http.HandleFunc("/get_state", getStateHandler)
+	http.HandleFunc("/get_chat_users", getChatUsersHandler)
+	http.HandleFunc("/add_chat_users", addChatUsersHandler)
 	http.HandleFunc("/update_state", updateStateHandler)
+	http.HandleFunc("/delete_chat_users", deleteChatUsersHandler)
+
 	go models.OpenChat(connectedUsers)
 	err := http.ListenAndServeTLS(constants.Port, "cert.pem", "key.pem", nil)
 	if err != nil {
