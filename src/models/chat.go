@@ -346,16 +346,26 @@ func (c *Chat) NewMessage(user User, message Message) {
 //DeleteUsers func
 func (c *Chat) DeleteUsers(users []PublicUser) {
 	var emptyMessages []Message
-	var temporalUsers []bson.ObjectId
 	adminUser := SearchUser(c.Admin)
-	for _, component := range c.Components {
+	isAdminDeleted := false
+	for i, component := range c.Components {
 		for _, deleteComponent := range users {
-			if component != deleteComponent.ID && deleteComponent.ID != adminUser.ID {
-				temporalUsers = append(temporalUsers, component)
+			if deleteComponent.ID == adminUser.ID {
+				isAdminDeleted = true
+			}
+			if component == deleteComponent.ID {
+				c.Components[i] = c.Components[len(c.Components)-1]
+				c.Components = c.Components[:len(c.Components)-1]
 			}
 		}
 	}
-	c.Components = temporalUsers
+
+	if isAdminDeleted {
+		adminUser = SearchUserById(c.Components[0])
+	}
+
+	c.Admin = adminUser.Username
+
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
@@ -363,7 +373,7 @@ func (c *Chat) DeleteUsers(users []PublicUser) {
 
 	collection := session.DB(constants.AuthDatabase).C("chat")
 
-	change := bson.M{"$set": bson.M{"components": c.Components, "messages": emptyMessages}}
+	change := bson.M{"$set": bson.M{"components": c.Components, "messages": emptyMessages, "admin": adminUser.Username}}
 	err = collection.UpdateId(c.ID, change)
 	if !errorchecker.Check("Error actualizando chat components", err) {
 		fmt.Println("Chat components actualizados")

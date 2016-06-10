@@ -177,6 +177,21 @@ func SearchUser(username string) User {
 	return User{}
 }
 
+// SearchUser returns the User object given a user with id
+func SearchUserById(id bson.ObjectId) User {
+	var user User
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+	usersCollection := session.DB(constants.AuthDatabase).C("user")
+	err = usersCollection.Find(bson.M{"_id": id}).One(&user)
+	if !errorchecker.Check("ERROR searching user", err) {
+		return user
+	}
+	return User{}
+}
+
 // GetPublicUser function
 func (u *User) GetPublicUser() PublicUser {
 	var user PublicUser
