@@ -6,7 +6,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -26,7 +25,6 @@ func Compress(data []byte) []byte {
 
 // Decompress función para descomprimir
 func Decompress(data []byte) []byte {
-	fmt.Println(data)
 	var b bytes.Buffer // b contendrá los datos descomprimidos
 
 	r, err := zlib.NewReader(bytes.NewReader(data)) // lector descomprime al leer

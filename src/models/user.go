@@ -51,25 +51,22 @@ func GetUsernames(ids []string) map[string]string {
 	usernames := make(map[string]string)
 
 	for _, id := range ids {
-		user := GetByID(id)
+		user := GetByID(bson.ObjectIdHex(id))
 		usernames[id] = user.Username
 	}
 	return usernames
 }
 
 //GetByID func
-func GetByID(id string) User {
+func GetByID(id bson.ObjectId) User {
 	var user User
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
 	session.SetMode(mgo.Monotonic, true)
 	usersCollection := session.DB(constants.AuthDatabase).C("user")
-	err = usersCollection.FindId(bson.ObjectIdHex(id)).One(&user)
+	err = usersCollection.FindId(id).One(&user)
 	if !errorchecker.Check("ERROR searching user", err) {
-		fmt.Println("^***************************")
-		fmt.Println(user.Username)
-		fmt.Println("^***************************")
 		return user
 	}
 	return User{}
@@ -88,6 +85,15 @@ func Login(username string, password []byte) User {
 		}
 	}
 	return User{}
+}
+
+func extractUsers(tokens []ChatToken) []bson.ObjectId {
+	var userIDS []bson.ObjectId
+	for _, token := range tokens {
+		user := SearchUser(token.Username)
+		userIDS = append(userIDS, user.ID)
+	}
+	return userIDS
 }
 
 // RegisterUser registered
@@ -171,6 +177,21 @@ func SearchUser(username string) User {
 	return User{}
 }
 
+// SearchUser returns the User object given a user with id
+func SearchUserById(id bson.ObjectId) User {
+	var user User
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+	usersCollection := session.DB(constants.AuthDatabase).C("user")
+	err = usersCollection.Find(bson.M{"_id": id}).One(&user)
+	if !errorchecker.Check("ERROR searching user", err) {
+		return user
+	}
+	return User{}
+}
+
 // GetPublicUser function
 func (u *User) GetPublicUser() PublicUser {
 	var user PublicUser
@@ -191,6 +212,17 @@ func (u *User) AddChat(chatid bson.ObjectId, token string) {
 	change := bson.M{"$push": bson.M{"chats": bson.M{"id": chatid, "token": token}}}
 	err = c.Update(colQuerier, change)
 	errorchecker.Check("ERROR inserting chat", err)
+}
+
+//GetUsersByID func
+func GetUsersByID(users []bson.ObjectId) []PublicUser {
+	var returnUsers []PublicUser
+	var user User
+	for _, ID := range users {
+		user = GetByID(ID)
+		returnUsers = append(returnUsers, user.GetPublicUser())
+	}
+	return returnUsers
 }
 
 // Validate given a user u it returns whether its attributes are valid or not
