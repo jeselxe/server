@@ -190,7 +190,7 @@ func getChatUsersHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 
-func deleteChatUserHandler(w http.ResponseWriter, r *http.Request) {
+func deleteChatUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var users []models.PublicUser
 	var chat models.Chat
 	usersStr := r.FormValue("users")
@@ -200,6 +200,22 @@ func deleteChatUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(dataUser, &users)
 	json.Unmarshal(dataChat, &chat)
 	chat.DeleteUsers(users)
+	chatBytes, _ := json.Marshal(chat)
+	w.Write(chatBytes)
+}
+
+func addChatUsersHandler(w http.ResponseWriter, r *http.Request) {
+	var tokens []models.ChatToken
+	var chat models.Chat
+	tokensStr := r.FormValue("tokens")
+	chatStr := r.FormValue("chat")
+	dataTokens := utils.Decode64(tokensStr)
+	dataChat := utils.Decode64(chatStr)
+	json.Unmarshal(dataTokens, &tokens)
+	json.Unmarshal(dataChat, &chat)
+
+	chat.AddUsers(tokens)
+
 	chatBytes, _ := json.Marshal(chat)
 	w.Write(chatBytes)
 }
@@ -231,8 +247,9 @@ func main() {
 	http.HandleFunc("/get_admin_chats", getAdminChatsHandler)
 	http.HandleFunc("/get_state", getStateHandler)
 	http.HandleFunc("/get_chat_users", getChatUsersHandler)
+	http.HandleFunc("/add_chat_users", addChatUsersHandler)
 	http.HandleFunc("/update_state", updateStateHandler)
-	http.HandleFunc("/delete_chat_users", deleteChatUserHandler)
+	http.HandleFunc("/delete_chat_users", deleteChatUsersHandler)
 
 	go models.OpenChat(connectedUsers)
 	err := http.ListenAndServeTLS(constants.Port, "cert.pem", "key.pem", nil)

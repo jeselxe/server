@@ -87,6 +87,15 @@ func Login(username string, password []byte) User {
 	return User{}
 }
 
+func extractUsers(tokens []ChatToken) []bson.ObjectId {
+	var userIDS []bson.ObjectId
+	for _, token := range tokens {
+		user := SearchUser(token.Username)
+		userIDS = append(userIDS, user.ID)
+	}
+	return userIDS
+}
+
 // RegisterUser registered
 func RegisterUser(username, password, pubKey, state string) (User, error) {
 	var user User

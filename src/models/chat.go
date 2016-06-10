@@ -370,3 +370,26 @@ func (c *Chat) DeleteUsers(users []PublicUser) {
 	}
 
 }
+
+//AddUsers func
+func (c *Chat) AddUsers(tokens []ChatToken) {
+	fmt.Println(tokens)
+	SaveChatInfo(tokens, c.ID)
+	userIDS := extractUsers(tokens)
+	for _, userID := range userIDS {
+		c.Components = append(c.Components, userID)
+	}
+	fmt.Println(c.Components)
+	session, err := mgo.Dial(constants.URI)
+	errorchecker.Check("ERROR dialing", err)
+	defer session.Close()
+	session.SetMode(mgo.Monotonic, true)
+
+	collection := session.DB(constants.AuthDatabase).C("chat")
+
+	change := bson.M{"$set": bson.M{"components": c.Components}}
+	err = collection.UpdateId(c.ID, change)
+	if !errorchecker.Check("Error actualizando chat components", err) {
+		fmt.Println("Chat components actualizados")
+	}
+}
