@@ -383,13 +383,12 @@ func (c *Chat) DeleteUsers(users []PublicUser) {
 
 //AddUsers func
 func (c *Chat) AddUsers(tokens []ChatToken) {
-	fmt.Println(tokens)
+
 	SaveChatInfo(tokens, c.ID)
 	userIDS := extractUsers(tokens)
 	for _, userID := range userIDS {
 		c.Components = append(c.Components, userID)
 	}
-	fmt.Println(c.Components)
 	session, err := mgo.Dial(constants.URI)
 	errorchecker.Check("ERROR dialing", err)
 	defer session.Close()
