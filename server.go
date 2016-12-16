@@ -6,9 +6,9 @@ import (
 	"log"
 	"net/http"
 	"project/client/src/errorchecker"
-	"./src/constants"
-	"./src/models"
-	"./src/utils"
+	"project/server/src/constants"
+	"project/server/src/models"
+	"project/server/src/utils"
 	"strconv"
 
 	"gopkg.in/mgo.v2/bson"
