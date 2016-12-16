@@ -14,6 +14,8 @@ var AuthDatabase = getDatabase()
 // Port port from environment
 var Port = GetPort()
 
+var TcpPort = GetTcpPort()
+
 func getURI() string {
 	var uri = os.Getenv("MONGOLAB_URI")
 	if uri == "" {
@@ -39,6 +41,17 @@ func GetPort() string {
 	if port == "" {
 		port = "8080"
 		log.Println("INFO: No PORT environment variable detected, defaulting to " + port)
+	}
+	return ":" + port
+}
+
+// GetPort Get the Port from the environment so we can run on Heroku
+func GetTcpPort() string {
+	var port = os.Getenv("TCP_PORT")
+	// Set a default port if there is nothing in the environment
+	if port == "" {
+		port = "1337"
+		log.Println("INFO: No TCP_PORT environment variable detected, defaulting to " + port)
 	}
 	return ":" + port
 }

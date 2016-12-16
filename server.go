@@ -6,9 +6,9 @@ import (
 	"log"
 	"net/http"
 	"project/client/src/errorchecker"
-	"project/server/src/constants"
-	"project/server/src/models"
-	"project/server/src/utils"
+	"./src/constants"
+	"./src/models"
+	"./src/utils"
 	"strconv"
 
 	"gopkg.in/mgo.v2/bson"
@@ -252,7 +252,8 @@ func main() {
 	http.HandleFunc("/delete_chat_users", deleteChatUsersHandler)
 
 	go models.OpenChat(connectedUsers)
-	err := http.ListenAndServeTLS(constants.Port, "cert.pem", "key.pem", nil)
+	//err := http.ListenAndServeTLS(constants.Port, "cert.pem", "key.pem", nil)
+	err := http.ListenAndServe(constants.Port, nil)
 	if err != nil {
 		fmt.Println("ListenAndServe error")
 	}

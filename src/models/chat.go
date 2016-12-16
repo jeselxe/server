@@ -180,7 +180,8 @@ func GetAdminChats(username string) []Chat {
 
 //OpenChat inits the chat
 func OpenChat(connectedUsers map[string]User) {
-	ln, err := tcpTLS("localhost:1337", "cert.pem", "key.pem") // escucha en espera de conexión
+	//ln, err := tcpTLS("localhost:1337", "cert.pem", "key.pem") // escucha en espera de conexión
+	ln, err := net.Listen("tcp", constants.TcpPort)
 	if err != nil {
 		fmt.Println("ERROR", err)
 	}
