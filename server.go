@@ -154,7 +154,7 @@ func getStateHandler(w http.ResponseWriter, r *http.Request) {
 	if errorchecker.Check("ERROR Marshal state", err) {
 		fmt.Println("Usuario <" + username + "> error recuperando su estado.")
 	}
-	byteChats = utils.Compress(byteChats)
+	//byteChats = utils.Compress(byteChats)
 	fmt.Println("Usuario <" + username + "> ha recuperado su estado.")
 	w.Write(byteChats)
 }
